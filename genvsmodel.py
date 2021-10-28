@@ -722,6 +722,11 @@ int32_t USER_ModelFinalize(void) {{
 #endif /* __cplusplus */
 '''
 
+if args.tabs:
+    Vprint("indenting output with tabs")
+else:
+    Vprint(f"indenting output with {max(0, args.indentwidth)} spaces")
+
 # generate the header and source files and print them to their intended
 # destinations (either files or stdout) if they are enabled
 if args.gen_header:
