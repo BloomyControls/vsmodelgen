@@ -69,10 +69,10 @@ if not args.stdout:
             exit(1)
     else:
         if args.gen_src and os.path.exists(outsrcfile):
-            print(f"{outsrcfile} exists and will be overwritten (-f)")
+            print(f"note: {outsrcfile} exists and will be overwritten (-f)")
 
         if args.gen_header and os.path.exists(outheaderfile):
-            print(f"{outheaderfile} exists and will be overwritten (-f)")
+            print(f"note: {outheaderfile} exists and will be overwritten (-f)")
 else:
     Vprint("output will be written to stdout")
 
@@ -340,6 +340,8 @@ def FmtExtIOList(inports, outports) -> str:
         for cat in outports:
             outportcount += len(outports[cat])
 
+    Vprint(f"found {inportcount} inports and {outportcount} outports")
+
     outstr = f'int32_t InportSize = {inportcount};\n'
     outstr += f'int32_t OutportSize = {outportcount};\n'
     outstr += 'int32_t ExtIOSize DataSection(".NIVS.extlistsize") = '
@@ -403,6 +405,8 @@ def FmtParamList(params) -> str:
 
     for cat in params:
         paramcount += len(params[cat])
+
+    Vprint(f"found {paramcount} parameters")
 
     if paramcount > 0:
         outstr += 'extern Parameters rtParameter[2];\n'
@@ -497,6 +501,8 @@ def FmtSignalList(signals) -> str:
     for cat in signals:
         signalcount += len(signals[cat])
 
+    Vprint(f"found {signalcount} signals")
+
     if signalcount > 0:
         outstr += 'Signals rtSignal;\n\n'
 
@@ -564,6 +570,7 @@ def FmtSignalInit(signals) -> str:
     return outstr
 
 
+# data taken from the config
 inports = {}
 outports = {}
 parameters = {}
@@ -578,8 +585,13 @@ if "parameters" in config:
 if "signals" in config:
     signals = ParseSignals(config["signals"])
 
-
+# generate an include guard based on the name of the model
 incguard = f'{str(config["name"]).upper()}_MODEL_H'
+
+if args.gen_header:
+    Vprint(f"using {incguard} as model.h include guard")
+
+# contents of the model.h file
 output_model_h = f'''
 #ifndef {incguard}
 #define {incguard}
@@ -592,6 +604,7 @@ output_model_h = f'''
 #endif /* {incguard} */
 '''
 
+# model source contents
 output_model_src = f'''
 #include "ni_modelframework.h"
 #include "model.h"
@@ -601,6 +614,7 @@ output_model_src = f'''
 #define rtINT 1
 '''
 
+# add inports and outports only if applicable
 inportsstruct = f'''
 /* Inports structure */
 {FmtPortsStruct(inports, "Inports")}
@@ -700,10 +714,22 @@ int32_t USER_ModelFinalize(void) {{
 #endif /* __cplusplus */
 '''
 
+# generate the header and source files and print them to their intended
+# destinations (either files or stdout) if they are enabled
 if args.gen_header:
-    print(Expand(output_model_h),
-            file=sys.stdout if args.stdout else open(outheaderfile, 'w'))
+    output_model_h = Expand(output_model_h)
+    linecount = len(output_model_h.splitlines())
+    if args.stdout:
+        print(output_model_h, file=sys.stdout)
+    else:
+        print(output_model_h, file=open(outheaderfile, 'w'))
+        print(f"wrote {linecount} lines to {outheaderfile}")
 
 if args.gen_src:
-    print(Expand(output_model_src),
-            file=sys.stdout if args.stdout else open(outsrcfile, 'w'))
+    output_model_src = Expand(output_model_src)
+    linecount = len(output_model_src.splitlines())
+    if args.stdout:
+        print(output_model_src, file=sys.stdout)
+    else:
+        print(output_model_src, file=open(outsrcfile, 'w'))
+        print(f"wrote {linecount} lines to {outsrcfile}")
