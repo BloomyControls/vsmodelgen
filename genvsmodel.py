@@ -26,6 +26,8 @@ parser.add_argument("-f", "--force", action='store_true',
         help="overwrite output files if they exist")
 parser.add_argument("--stdout", action='store_true',
         help="print generated output to stdout instead of files on disk")
+parser.add_argument("-v", "--verbose", action='store_true',
+        help="enable verbose output printed to stderr for debugging")
 
 def AddOptGen(name: str, help: str, default: bool = True):
     parser.add_argument(f'--{name}', action=argparse.BooleanOptionalAction,
@@ -36,63 +38,122 @@ AddOptGen("src", "generate model source file")
 
 args = parser.parse_args()
 
-config = {}
+def Vprint(*objects, sep=' ', end='\n'):
+    if args.verbose:
+        print("info:", *objects, sep=sep, end=end, file=sys.stderr, flush=True)
 
+def Eprint(*objects, sep=' ', end='\n'):
+    print(*objects, sep=sep, end=end, file=sys.stderr, flush=True)
+
+def Die(*objects, code=1):
+    Eprint("error:", *objects)
+    exit(code)
+
+# output source and header file paths
 outsrcfile = os.path.join(args.outdir, args.outsrcfile)
 outheaderfile = os.path.join(args.outdir, "model.h")
 
-if not args.stdout and not args.force:
-    if args.gen_src and os.path.exists(outsrcfile):
-        print(f"Output file {outsrcfile} exists, not overwriting.",
-                file=sys.stderr)
-        print("Use -f to override this behavior.", file=sys.stderr)
-        exit(1)
+if not args.stdout:
+    Vprint("output source file path:", outsrcfile)
+    Vprint("output header file path:", outheaderfile)
 
-    if args.gen_header and os.path.exists(outheaderfile):
-        print(f"Output file {outheaderfile} exists, not overwriting.",
-                file=sys.stderr)
-        print("Use -f to override this behavior.", file=sys.stderr)
-        exit(1)
+    if not args.force:
+        if args.gen_src and os.path.exists(outsrcfile):
+            Eprint(f"output file {outsrcfile} exists, not overwriting")
+            Eprint("use -f to override this behavior")
+            exit(1)
 
+        if args.gen_header and os.path.exists(outheaderfile):
+            Eprint(f"output file {outheaderfile} exists, not overwriting")
+            Eprint("use -f to override this behavior")
+            exit(1)
+    else:
+        if args.gen_src and os.path.exists(outsrcfile):
+            print(f"{outsrcfile} exists and will be overwritten (-f)")
+
+        if args.gen_header and os.path.exists(outheaderfile):
+            print(f"{outheaderfile} exists and will be overwritten (-f)")
+else:
+    Vprint("output will be written to stdout")
+
+
+# load config from JSON file
 config = json.load(args.config)
 
 if not "name" in config:
-    print("Error: config does not define a model name", file=sys.stderr)
-    exit(1)
+    Die("config does not define a model name")
 else:
     if not str(config["name"]).isidentifier():
-        print("Error: model name is not a valid identifier", file=sys.stderr)
-        exit(1)
+        Die("model name is not a valid identifier")
 
 if not "builder" in config:
-    print("Error: config does not define a model builder", file=sys.stderr)
-    exit(1)
+    Die("config does not define a model builder")
 if not "baserate" in config:
-    print("Error: config does not define a model baserate", file=sys.stderr)
-    exit(1)
+    Die("config does not define a model baserate")
+
+Vprint(f'model name: {config["name"]}')
+Vprint(f'model builder: {config["builder"]}')
+Vprint(f'model baserate: {config["baserate"]}')
 
 
-def Expand(msg: str):
+def Expand(msg: str) -> str:
+    """
+    Expand tabs as specified by the user.
+
+    :param msg: the string to indent
+    :returns: the string with tabs expanded as necessary
+
+    """
     msg = textwrap.dedent(msg).strip()
     if not args.tabs:
         return msg.expandtabs(max(0, args.indentwidth))
     else:
         return msg
 
-def GetCategoryAndName(portname: str):
-    if not "." in portname and portname.isidentifier():
-        return (":default", portname)
-    elif "." in portname and len(portname.split(".")) == 2:
-        (cat, name) = portname.split(".")
-        if cat.isidentifier() and name.isidentifier():
-            return (cat, name)
-        else:
-            # TODO error handling
-            return (None, None)
-    else:
-        return (None, None)
+def GetCategoryAndName(portname: str) -> (str, str):
+    """
+    Parse the name of an inport, outport, signal, or parameter into a category
+    and a name.
 
-def ParseValueDefs(values, desc=False, types=False):
+    :param portname: the name of the inport, outport, signal, or parameter
+
+    :returns: a tuple of ("category", "name")
+
+    """
+    if not "." in portname:
+        if portname.isidentifier():
+            return (":default", portname)
+        else:
+            Die(f"{portname} is not a valid identifier")
+    else:
+        parts = portname.split(".")
+        if len(parts) == 2:
+            (cat, name) = parts
+            if not cat.isidentifier():
+                Die(f"'{portname}': '{cat}' is not a valid identifier")
+            elif not name.isidentifier():
+                Die(f"'{portname}': '{name}' is not a valid identifier")
+            else:
+                return (cat, name)
+        else:
+            Die(f"'{portname}': names cannot contain more than one '.'")
+
+def ParseValueDefs(values, desc=False, types=False) -> dict:
+    """
+    Parse value definitions (inports, outports, signals, parameters) from the
+    JSON config data.
+
+    :param values: array of objects from JSON
+    :type values: list
+    :param desc: whether or not this value type has a definition field (i.e.
+    signals) (Default value = False)
+    :param types: whether or not this value type has a type field (i.e. signals
+    and parameters) (Default value = False)
+
+    :returns: a dictionary mapping categories to lists of objects containing
+    name, dimX>=1, dimY>=1, and optionally a description and a type
+
+    """
     outdata = {}
 
     for valdef in values:
@@ -106,14 +167,28 @@ def ParseValueDefs(values, desc=False, types=False):
         if isinstance(valdef, dict):
             if "name" in valdef:
                 (cat, name) = GetCategoryAndName(str(valdef["name"]))
+            else:
+                Die("unnamed port, signal, or parameter")
+
             if desc and "description" in valdef:
                 description = str(valdef["description"])
+
             if types and "type" in valdef:
-                datatype = "int32_t" if valdef["type"] == "i32" else "double"
+                if valdef["type"] == "i32":
+                    datatype = "int32_t"
+                elif valdef["type"] == "double":
+                    datatype = "double"
+                else:
+                    Die(f"'{valdef['name']}': unknown type: {valdef['name']}")
+
             if "dimX" in valdef:
-                dimX = max(1, int(valdef["dimX"]))
+                dimX = int(valdef["dimX"])
             if "dimY" in valdef:
-                dimY = max(1, int(valdef["dimY"]))
+                dimY = int(valdef["dimY"])
+            if dimX < 1:
+                Die(f"'{valdef['name']}': dimX cannot be less than 1")
+            if dimY < 1:
+                Die(f"'{valdef['name']}': dimY cannot be less than 1")
         elif isinstance(valdef, str):
             (cat, name) = GetCategoryAndName(str(valdef["name"]))
 
@@ -135,16 +210,46 @@ def ParseValueDefs(values, desc=False, types=False):
 
     return outdata
 
-def ParsePorts(ports):
+def ParsePorts(ports) -> dict:
+    """
+    Wraps around ParseValueDefs() to parse inports or outports.
+
+    """
     return ParseValueDefs(ports, types=False, desc=False)
 
-def ParseParameters(params):
+def ParseParameters(params) -> dict:
+    """
+    Wraps around ParseValueDefs() to parse parameters.
+
+    """
     return ParseValueDefs(params, types=True, desc=False)
 
-def ParseSignals(signals):
+def ParseSignals(signals) -> dict:
+    """
+    Wraps around ParseValueDefs() to parse signals.
+
+    """
     return ParseValueDefs(signals, desc=True, types=True)
 
-def FmtValueDefsStruct(valuedata, structname: str, types=False):
+def FmtValueDefsStruct(valuedata, structname: str, types=False) -> str:
+    """
+    Format a dict of value definitions (inports, outports, signals, parameters)
+    as returned by ParseValueDefs() into a C structure. This will be in the
+    format `typedef struct structname {...} structname;`.
+
+    Categories will be represented as sub-structures.
+
+    :param valuedata: dictionary containing definitions of categories and their
+    values
+    :type valuedata: dict
+    :param structname: the name of the struct to create (must be a valid
+    C identifier)
+    :param types: whether or not to expect a type field in the definition for
+    each value
+
+    :returns: a string containing the struct definition
+
+    """
     outstr = f'typedef struct {structname} {{\n'
 
     for cat in valuedata:
@@ -173,22 +278,58 @@ def FmtValueDefsStruct(valuedata, structname: str, types=False):
     outstr += f"}} {structname};\n"
     return outstr
 
-def FmtPortsStruct(ports, structname: str):
+def FmtPortsStruct(ports, structname: str) -> str:
+    """
+    Format a struct for inports or outports using FmtValueDefsStruct().
+
+    :param structname: the name of the struct to create
+
+    """
     return FmtValueDefsStruct(ports, structname, types=False)
 
-def FmtParametersStruct(params):
+def FmtParametersStruct(params) -> str:
+    """
+    Format a struct for parameters using FmtValueDefsStruct().
+
+    """
     return FmtValueDefsStruct(params, "Parameters", types=True)
 
-def FmtSignalsStruct(signals):
+def FmtSignalsStruct(signals) -> str:
+    """
+    Format a struct for signals using FmtValueDefsStruct().
+
+    """
     return FmtValueDefsStruct(signals, "Signals", types=True)
 
-def FmtExtIO(port, category: str, is_input: bool):
+def FmtExtIO(port, category: str, is_input: bool) -> str:
+    """
+    Format an entry in the generated ExtIO list. The result does not contain
+    leading or trailing whitespace.
+
+    :param port: the object containing the inport/outport data
+    :type port: dict
+    :param category: the category of the inport/outport
+    :param is_input: whether or not this is an inport
+
+    :returns: a string containing the generated ExtIO struct
+
+    """
     catfield = category + '/' if category != ":default" else ""
     dirfield = 0 if is_input else 1
     dims = f'{port["dimX"]}, {port["dimY"]}'
     return f'{{0, "{catfield}{port["name"]}", 0, {dirfield}, 1, {dims}}}'
 
-def FmtExtIOList(inports, outports):
+def FmtExtIOList(inports, outports) -> str:
+    """
+    Generates the ExtIO array from the given inports and outports. Also
+    generates the variables defining the number of inports and outports.
+
+    :param inports: list of inports
+    :param outports: list of outports
+
+    :returns: a string containing the generated ExtIO array
+
+    """
     inportcount = 0
     outportcount = 0
 
@@ -224,7 +365,20 @@ def FmtExtIOList(inports, outports):
 
     return outstr
 
-def FmtParamAttribs(param, category: str, offset=0):
+def FmtParamAttribs(param, category: str, offset=0) -> str:
+    """
+    Generate a parameter attributes structure for a parameter definition.
+
+    :param param: the parameter object
+    :type param: dict
+    :param category: the category this parameter is in
+    :param offset: the offset field value (starts at 0, should increase by 2 for
+    each entry in the list)
+
+    :returns: a string containing the parameter attributes structure to be put
+    into the array for VeriStand
+
+    """
     catfield = category + '/' if category != ":default" else ""
     namefield = catfield + param['name']
     structoffset = f'offsetof(Parameters, {param["name"]})'
@@ -233,7 +387,17 @@ def FmtParamAttribs(param, category: str, offset=0):
     return '{{0, "{}", {}, {}, {}, 2, {}, 0}}'.format(
             namefield, structoffset, typefield, dim, offset)
 
-def FmtParamList(params):
+def FmtParamList(params) -> str:
+    """
+    Generate the list of parameter attributes and the variables/definitions that
+    go along with it.
+
+    :param params: the list of parameter objects
+    :type params: list
+
+    :returns: a string containing the generated parameter configuration data
+
+    """
     outstr = ''
     paramcount = 0
 
@@ -296,7 +460,19 @@ def FmtParamList(params):
 
     return outstr
 
-def FmtSignalAttribs(signal, category: str, offset=0):
+def FmtSignalAttribs(signal, category: str, offset=0) -> str:
+    """
+    Generate a signal attributes structure for a signal.
+
+    :param signal: the signal object to use
+    :type signal: dict
+    :param category: the category this signal is in
+    :param offset: the value of the offset field in the entry (should start at
+    0 and increase by 2 for each entry)
+
+    :returns a string containing the generated signal attributes structure
+
+    """
     catfield = category + '/' if category != ":default" else ""
     namefield = str(config["name"]) + '/' + catfield + signal['name']
     typefield = 'rtDBL' if signal["type"] == "double" else 'rtINT'
@@ -304,7 +480,17 @@ def FmtSignalAttribs(signal, category: str, offset=0):
     return '{{0, "{}", 0, "{}", 0, 0, {}, {}, 2, {}, 0}}'.format(
             namefield, signal["description"], typefield, dim, offset)
 
-def FmtSignalList(signals):
+def FmtSignalList(signals) -> str:
+    """
+    Generate the signal list.
+
+    :param signals: the list of signals
+    :type signals: list
+
+    :returns: a string containing the generated signal list and related
+    configuration data
+
+    """
     outstr = ''
     signalcount = 0
 
@@ -342,7 +528,18 @@ def FmtSignalList(signals):
 
     return outstr
 
-def FmtSignalInit(signals):
+def FmtSignalInit(signals) -> str:
+    """
+    Generate the code used to configure pointers to signals in the
+    initialization function.
+
+    :param signals: list of signals
+    :type signals: list
+
+    :returns: the signal initialization code generated (beginning with
+    a newline)
+
+    """
     if len(signals) == 0:
         return ''
 
