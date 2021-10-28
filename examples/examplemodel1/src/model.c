@@ -128,6 +128,7 @@ double USER_GetValueByDataType(void* ptr, int32_t idx, int32_t type) {
 }
 
 int32_t USER_Initialize(void) {
+  /* Populate pointers to signal values */
   rtSignalAttribs[0].addr = (uintptr_t)rtSignal.i32_vec_sig;
   rtSignalAttribs[1].addr = (uintptr_t)&rtSignal.double_sig;
 

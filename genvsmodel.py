@@ -347,6 +347,7 @@ def FmtSignalInit(signals):
         return ''
 
     outstr = '\n'
+    outstr += '\t/* Populate pointers to signal values */\n'
     i = 0
 
     for cat in signals:
