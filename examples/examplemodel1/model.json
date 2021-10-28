@@ -1,0 +1,57 @@
+{
+  "name": "my_new_model",
+  "builder": "A newly-generated model.",
+  "baserate": 0.0025,
+  "inports": [
+    {
+      "name": "scalar_in"
+    },
+    {
+      "name": "vectors.vector1d_in",
+      "dimX": 8
+    },
+    {
+      "name": "vectors.vector2d_in",
+      "dimX": 2,
+      "dimY": 12
+    }
+  ],
+  "outports": [
+    {
+      "name": "scalar_out"
+    },
+    {
+      "name": "vectors.vector1d_out",
+      "dimX": 6
+    },
+    {
+      "name": "vectors.vector2d_out",
+      "dimX": 3,
+      "dimY": 5
+    }
+  ],
+  "parameters": [
+    {
+      "name": "i32_param",
+      "type": "i32"
+    },
+    {
+      "name": "double_vec_param",
+      "type": "double",
+      "dimX": 4,
+      "dimY": 4
+    }
+  ],
+  "signals": [
+    {
+      "name": "i32_vec_sig",
+      "description": "An array of integers.",
+      "type": "i32",
+      "dimX": "24"
+    },
+    {
+      "name": "double_sig",
+      "description": "A double value."
+    }
+  ]
+}
