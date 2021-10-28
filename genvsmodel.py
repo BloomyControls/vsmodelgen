@@ -7,34 +7,42 @@ import sys
 import textwrap
 
 parser = argparse.ArgumentParser(
-        description="Generate VeriStand model boilerplate types/functions.")
+        description="Generate VeriStand model boilerplate types/functions.",
+        usage='%(prog)s [options] CONFIG')
 
 parser.add_argument("config", metavar="CONFIG", type=argparse.FileType('r'),
         help="JSON model config file (or '-' to read from stdin)")
-parser.add_argument("-O", "--outdir", metavar="DIR", type=str,
-        default=os.getcwd(),
-        help="directory to output files to instead of the working directory")
-parser.add_argument("-o", metavar="FILE", type=str, dest='outsrcfile',
-        default="model.c",
-        help="name of the output model source file (default: %(default)s)")
-parser.add_argument("-w", "--indentwidth", metavar="N", type=int,
-        default=2,
-        help="number of spaces used to indent (default: %(default)s)")
-parser.add_argument("-t", "--tabs", action='store_true',
-        help="use tabs to instead of spaces to indent generated code")
-parser.add_argument("-f", "--force", action='store_true',
-        help="overwrite output files if they exist")
-parser.add_argument("--stdout", action='store_true',
-        help="print generated output to stdout instead of files on disk")
+
 parser.add_argument("-v", "--verbose", action='store_true',
         help="enable verbose output printed to stderr for debugging")
 
-def AddOptGen(name: str, help: str, default: bool = True):
-    parser.add_argument(f'--{name}', action=argparse.BooleanOptionalAction,
-            dest=f"gen_{name}", default=default, help=help)
+outputargs = parser.add_argument_group('output options',
+        'Options controlling the output of the generated source.')
+outputargs.add_argument("-f", "--force", action='store_true',
+        help="overwrite output files if they exist")
+outputargs.add_argument("-O", "--outdir", metavar="DIR", type=str,
+        default=os.getcwd(),
+        help="directory to output files to instead of the working directory")
+outputargs.add_argument("-o", metavar="FILE", type=str, dest='outsrcfile',
+        default="model.c",
+        help="name of the output model source file (default: %(default)s)")
+outputargs.add_argument("-s", "--stdout", action='store_true',
+        help="print generated output to stdout instead of files on disk")
 
-AddOptGen("header", "generate model.h")
-AddOptGen("src", "generate model source file")
+genargs = parser.add_argument_group('generation options',
+        'Options controlling the generated output.')
+genargs.add_argument(f'--header', action=argparse.BooleanOptionalAction,
+        dest="gen_header", default=True, help="generate model.h")
+genargs.add_argument(f'--src', action=argparse.BooleanOptionalAction,
+        dest="gen_src", default=True, help="generate model source file")
+
+formatargs = parser.add_argument_group('formatting options',
+        'Options controlling the formatting of the generated source.')
+formatargs.add_argument("-t", "--tabs", action='store_true',
+        help="use tabs to instead of spaces to indent generated code")
+formatargs.add_argument("-w", "--indentwidth", metavar="N", type=int,
+        default=2,
+        help="number of spaces used to indent (default: %(default)s)")
 
 args = parser.parse_args()
 
