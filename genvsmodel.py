@@ -53,6 +53,9 @@ def Vprint(*objects, sep=' ', end='\n'):
 def Eprint(*objects, sep=' ', end='\n'):
     print(*objects, sep=sep, end=end, file=sys.stderr, flush=True)
 
+def Warn(msg: str):
+    print("warning:", msg, file=sys.stderr, flush=True)
+
 def Die(*objects, code=1):
     Eprint("error:", *objects)
     exit(code)
@@ -77,10 +80,10 @@ if not args.stdout:
             exit(1)
     else:
         if args.gen_src and os.path.exists(outsrcfile):
-            print(f"note: {outsrcfile} exists and will be overwritten (-f)")
+            print(f"{outsrcfile} exists and will be overwritten (-f)")
 
         if args.gen_header and os.path.exists(outheaderfile):
-            print(f"note: {outheaderfile} exists and will be overwritten (-f)")
+            print(f"{outheaderfile} exists and will be overwritten (-f)")
 else:
     Vprint("output will be written to stdout")
 
@@ -180,6 +183,8 @@ def ParseChannels(channels, desc=False, types=False) -> dict:
 
             if desc and "description" in channel:
                 description = str(channel["description"])
+            elif not desc and "description" in channel:
+                Warn(f"{channel['name']}: ignoring description field")
 
             if types and "type" in channel:
                 if channel["type"] == "i32":
@@ -187,16 +192,18 @@ def ParseChannels(channels, desc=False, types=False) -> dict:
                 elif channel["type"] == "double":
                     datatype = "double"
                 else:
-                    Die(f"'{channel['name']}': unknown type: {channel['name']}")
+                    Die(f"{channel['name']}: unknown type: {channel['type']}")
+            elif not types and "type" in channel:
+                Warn(f"{channel['name']}: ignoring type field")
 
             if "dimX" in channel:
                 dimX = int(channel["dimX"])
             if "dimY" in channel:
                 dimY = int(channel["dimY"])
             if dimX < 1:
-                Die(f"'{channel['name']}': dimX cannot be less than 1")
+                Die(f"{channel['name']}: dimX cannot be less than 1")
             if dimY < 1:
-                Die(f"'{channel['name']}': dimY cannot be less than 1")
+                Die(f"{channel['name']}: dimY cannot be less than 1")
         elif isinstance(channel, str):
             (cat, name) = GetCategoryAndName(channel)
 
