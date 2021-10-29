@@ -35,6 +35,8 @@ genargs.add_argument(f'--header', action=argparse.BooleanOptionalAction,
         dest="gen_header", default=True, help="generate model.h")
 genargs.add_argument(f'--src', action=argparse.BooleanOptionalAction,
         dest="gen_src", default=True, help="generate model source file")
+genargs.add_argument(f'--makefile', action=argparse.BooleanOptionalAction,
+        dest="gen_makefile", default=False, help="generate makefile")
 
 formatargs = parser.add_argument_group('formatting options',
         'Options controlling the formatting of the generated source.')
@@ -43,6 +45,38 @@ formatargs.add_argument("-t", "--tabs", action='store_true',
 formatargs.add_argument("-w", "--indentwidth", metavar="N", type=int,
         default=2,
         help="number of spaces used to indent (default: %(default)s)")
+
+makeargs = parser.add_argument_group('makefile options',
+        textwrap.dedent("""
+            Options controlling the generated makefile (if enabled).
+
+            By default (if -S and -I are not specified), the output directory
+            specified by -O (or the current working directory if -O is not
+            specified) is used for source files.
+
+            Note: directories specified MUST be relative to the location of the
+            Makefile!
+            """))
+makeargs.add_argument('--cstd', type=str, default="c11",
+        metavar='STD', help="C language standard (default: %(default)s)")
+makeargs.add_argument('--cxxstd', type=str, default="c++14",
+        metavar='STD', help="C++ language standard (default: %(default)s)")
+makeargs.add_argument('-I', action='extend', type=str, default=[],
+        metavar='DIR', dest='include_dirs',
+        help="add a directory to search for includes in (may be specified " +
+        "multiple tiles)")
+makeargs.add_argument('-M', '--makefile-name', type=str, default="Makefile",
+        metavar='NAME', dest='makefile_name',
+        help="change the name of the generated makefile (default: %(default)s)")
+makeargs.add_argument('-S', type=str, default="", metavar='DIR',
+        dest='source_dir',
+        help="add a directory to look for source files in")
+makeargs.add_argument('-V', "--veristand-version", type=int, default=2018,
+        metavar="YEAR", dest="veristand_version",
+        help="VeriStand version to use (default: %(default)s)")
+makeargs.add_argument('-B', "--bat", action='store_true', dest="gen_make_bat",
+        help="generate build.bat script to use NI's toolchain to run the " +
+        "generated makefile")
 
 args = parser.parse_args()
 
@@ -63,10 +97,14 @@ def Die(*objects, code=1):
 # output source and header file paths
 outsrcfile = os.path.join(args.outdir, args.outsrcfile)
 outheaderfile = os.path.join(args.outdir, "model.h")
+outmakefile = os.path.join(args.outdir, args.makefile_name)
+outmakebat = os.path.join(args.outdir, "build.bat")
 
 if not args.stdout:
-    Vprint("output source file path:", outsrcfile)
-    Vprint("output header file path:", outheaderfile)
+    if args.gen_src: Vprint("output source file path:", outsrcfile)
+    if args.gen_header: Vprint("output header file path:", outheaderfile)
+    if args.gen_makefile: Vprint("output makefile path:", outmakefile)
+    if args.gen_make_bat: Vprint("output batch file path:", outmakebat)
 
     if not args.force:
         if args.gen_src and os.path.exists(outsrcfile):
@@ -78,12 +116,28 @@ if not args.stdout:
             Eprint(f"output file {outheaderfile} exists, not overwriting")
             Eprint("use -f to override this behavior")
             exit(1)
+
+        if args.gen_makefile and os.path.exists(outmakefile):
+            Eprint(f"output file {outmakefile} exists, not overwriting")
+            Eprint("use -f to override this behavior")
+            exit(1)
+        if args.gen_make_bat and os.path.exists(outmakebat):
+            Eprint(f"output file {outmakebat} exists, not overwriting")
+            Eprint("use -f to override this behavior")
+            exit(1)
+
     else:
         if args.gen_src and os.path.exists(outsrcfile):
             print(f"{outsrcfile} exists and will be overwritten (-f)")
 
         if args.gen_header and os.path.exists(outheaderfile):
             print(f"{outheaderfile} exists and will be overwritten (-f)")
+
+        if args.gen_makefile and os.path.exists(outmakefile):
+            print(f"{outmakefile} exists and will be overwritten (-f)")
+
+        if args.gen_make_bat and os.path.exists(outmakebat):
+            print(f"{outmakebat} exists and will be overwritten (-f)")
 else:
     Vprint("output will be written to stdout")
 
@@ -774,3 +828,117 @@ if args.gen_src:
     else:
         print(output_model_src, file=open(outsrcfile, 'w'))
         print(f"wrote {linecount} lines to {outsrcfile}")
+
+if args.gen_makefile:
+    if args.source_dir == "":
+        args.source_dir = "."
+
+    sources = ""
+    for ext in ['c', 'cpp', 'cc', 'cxx']:
+        sources += f' $(wildcard {args.source_dir}/*.{ext})'
+
+    includes = ""
+    for inc in args.include_dirs:
+        includes += ' "-I$(abspath {inc})"'
+
+    makefile = f"""
+    CC = x86_64-nilrt-linux-gcc.exe
+    CXX = x86_64-nilrt-linux-g++.exe
+
+    # GCCSYSROOTPATH is generated from NI's bat files
+    CXXFLAGS += -MMD -MP -W -Wall -pedantic -fPIC -std={args.cxxstd} \\
+    \t--sysroot="$(subst \\,/,$(GCCSYSROOTPATH))" -fstrength-reduce \\
+    \t-Os -fno-builtin -fno-strict-aliasing -fvisibility=protected
+
+    CFLAGS += -MMD -MP -W -Wall -pedantic -fPIC -std={args.cstd} \\
+    \t--sysroot="$(subst \\,/,$(GCCSYSROOTPATH))" -fstrength-reduce \\
+    \t-Os -fno-builtin -fno-strict-aliasing -fvisibility=protected
+
+    CPPFLAGS += -DkNIOSLinux
+
+    RM := cs-rm -rf
+
+    LDFLAGS += -fPIC -lrt -lpthread -lm -lc \\
+    \t--sysroot="$(subst \\,/,$(GCCSYSROOTPATH))"
+
+    # add include directories (-I/path/to/dir) here
+    INCLUDES :={includes}
+
+    # include directory for ni_modelframework.h
+    NIVS_INC := "-IC:/VeriStand/{args.veristand_version}/ModelInterface"
+
+    # override this with environment variable if desired
+    BUILDDIR ?= build
+
+    SRC :={sources}
+    OBJ := $(patsubst {args.source_dir}/%,$(BUILDDIR)/%.o,$(SRC))
+    DEP := $(wildcard $(BUILDDIR)/*.d)
+
+    NIVS_SRC := C:/VeriStand/{args.veristand_version}/ModelInterface/custom/src/ni_modelframework.c
+    NIVS_OBJ := $(BUILDDIR)/ni_modelframework.o
+
+    TARGET := $(BUILDDIR)/lib{config["name"]}64.so
+
+    .PHONY: all clean
+
+    all: $(TARGET)
+
+    $(TARGET): $(OBJ) $(NIVS_OBJ)
+    \t@echo LINK\t$@
+    \t@$(CXX) $(LDFLAGS) -shared -m64 -Wl,-soname,"$(@F)" -o "$@" $^
+
+    -include $(DEP)
+
+    $(NIVS_OBJ): $(NIVS_SRC) | $(BUILDDIR)
+    \t@echo CC\t$@
+    \t@$(CC) $(CFLAGS) $(CPPFLAGS) -w "-I{args.source_dir}" $(NIVS_INC) -o "$@" -c "$<"
+
+    define GEN_OBJ_TARGET
+    $$(BUILDDIR)/%$(1).o: {args.source_dir}/%$(1) | $$(BUILDDIR)
+    \t@echo $(2)\t$$@
+    \t@$$($(2)) $$($(3)) $$(CPPFLAGS) $$(INCLUDES) $$(NIVS_INC) -o "$$@" -c "$$<"
+    endef
+
+    $(eval $(call GEN_OBJ_TARGET,.c,CC,CFLAGS))
+    $(eval $(call GEN_OBJ_TARGET,.cpp,CXX,CXXFLAGS))
+    $(eval $(call GEN_OBJ_TARGET,.cc,CXX,CXXFLAGS))
+    $(eval $(call GEN_OBJ_TARGET,.cxx,CXX,CXXFLAGS))
+
+    $(BUILDDIR):
+    \t@echo MKDIR\t$@
+    \t@mkdir "$@"
+
+    clean:
+    \t@echo RM\t$(BUILDDIR)
+    \t@$(RM) -rf "$(BUILDDIR)"
+    """
+
+    makefile = textwrap.dedent(makefile).strip()
+    linecount = len(makefile.splitlines())
+    if args.stdout:
+        print(makefile, file=sys.stdout)
+    else:
+        print(makefile, file=open(outmakefile, 'w'))
+        print(f"wrote {linecount} lines to {outmakefile}")
+
+    if args.gen_make_bat:
+        makebat = f"""
+        @ECHO OFF
+
+        SET BasePath="%~dp0"
+        REM drop the trailing \\ on the path
+        SET BasePath="%BasePath:~0,-1%"
+
+        cd "%BasePath%"
+
+        REM setup VeriStand environment and pass args to the makefile
+        cmd /k "C:\\VeriStand\\{args.veristand_version}\\ModelInterface\\tmw\\toolchain\\Linux_64_GNU_Setup.bat & cs-make.exe -f {args.makefile_name} %*"
+        """
+
+        makebat = textwrap.dedent(makebat).strip()
+        linecount = len(makebat.splitlines())
+        if args.stdout:
+            print(makebat, file=sys.stdout)
+        else:
+            print(makebat, file=open(outmakebat, 'w'))
+            print(f"wrote {linecount} lines to {outmakebat}")
