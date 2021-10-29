@@ -154,7 +154,8 @@ int32_t USER_TakeOneStep(double* inData, double* outData, double timestamp) {
    * casts. Those likely to be removed are marked with "FIXME".
    */
   const struct Inports* inports = (const struct Inports*)inData;
-  (void)inports; /* FIXME */  struct Outports* outports = (struct Outports*)outData;
+  (void)inports; /* FIXME */
+  struct Outports* outports = (struct Outports*)outData;
   (void)outports; /* FIXME */
   (void)timestamp; /* FIXME */
   return NI_OK;

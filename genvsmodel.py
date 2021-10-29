@@ -780,18 +780,17 @@ inportscast = 'const struct Inports* inports = (const struct Inports*)inData;\n'
 outportscast = 'struct Outports* outports = (struct Outports*)outData;\n'
 if len(inports) > 0:
     output_model_src += '\t' + inportscast
-    output_model_src += '\t(void)inports; /* FIXME */'
+    output_model_src += '\t(void)inports; /* FIXME */\n'
 else:
-    output_model_src += '\t(void)inData; /* suppress unused variable */'
+    output_model_src += '\t(void)inData; /* suppress unused variable */\n'
 
 if len(outports) > 0:
     output_model_src += '\t' + outportscast
-    output_model_src += '\t(void)outports; /* FIXME */'
+    output_model_src += '\t(void)outports; /* FIXME */\n'
 else:
-    output_model_src += '\t(void)outData; /* suppress unused variable */'
+    output_model_src += '\t(void)outData; /* suppress unused variable */\n'
 
-output_model_src += f'''
-\t(void)timestamp; /* FIXME */
+output_model_src += f'''\t(void)timestamp; /* FIXME */
 \treturn NI_OK;
 }}
 
