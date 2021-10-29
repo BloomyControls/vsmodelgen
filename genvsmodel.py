@@ -841,6 +841,10 @@ if args.gen_makefile:
         includes += ' "-I$(abspath {inc})"'
 
     makefile = f"""
+    # change this if you wish to update the veristand version used
+    # (this is overridden by the value in build.bat)
+    VERISTAND_VERSION ?= {args.veristand_version}
+
     CC = x86_64-nilrt-linux-gcc.exe
     CXX = x86_64-nilrt-linux-g++.exe
 
@@ -864,7 +868,7 @@ if args.gen_makefile:
     INCLUDES :={includes}
 
     # include directory for ni_modelframework.h
-    NIVS_INC := "-IC:/VeriStand/{args.veristand_version}/ModelInterface"
+    NIVS_INC := "-IC:/VeriStand/$(VERISTAND_VERSION)/ModelInterface"
 
     # override this with environment variable if desired
     BUILDDIR ?= build
@@ -873,7 +877,7 @@ if args.gen_makefile:
     OBJ := $(patsubst {args.source_dir}/%,$(BUILDDIR)/%.o,$(SRC))
     DEP := $(wildcard $(BUILDDIR)/*.d)
 
-    NIVS_SRC := C:/VeriStand/{args.veristand_version}/ModelInterface/custom/src/ni_modelframework.c
+    NIVS_SRC := C:/VeriStand/$(VERISTAND_VERSION)/ModelInterface/custom/src/ni_modelframework.c
     NIVS_OBJ := $(BUILDDIR)/ni_modelframework.o
 
     TARGET := $(BUILDDIR)/lib{config["name"]}64.so
@@ -930,8 +934,11 @@ if args.gen_makefile:
 
         cd "%BasePath%"
 
+        REM change this to change your VeriStand version
+        SET VERISTAND_VERSION={args.veristand_version}
+
         REM setup VeriStand environment and pass args to the makefile
-        cmd /k "C:\\VeriStand\\{args.veristand_version}\\ModelInterface\\tmw\\toolchain\\Linux_64_GNU_Setup.bat & cs-make.exe -f {args.makefile_name} %*"
+        cmd /k "C:\\VeriStand\\%VERISTAND_VERSION%\\ModelInterface\\tmw\\toolchain\\Linux_64_GNU_Setup.bat & cs-make.exe -f {args.makefile_name} %*"
         """
 
         makebat = textwrap.dedent(makebat).strip()
