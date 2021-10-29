@@ -1,6 +1,8 @@
 #include "ni_modelframework.h"
 #include "model.h"
 
+#include <stddef.h> /* offsetof() */
+
 /* User-defined data types for parameters and signals */
 #define rtDBL 0
 #define rtINT 1
@@ -8,7 +10,7 @@
 /* Inports structure */
 typedef struct Inports {
   double scalar_in;
-  struct vectors {
+  struct Inports_vectors {
     double vector1d_in[8];
     double vector2d_in[2][12];
   } vectors;
@@ -18,11 +20,18 @@ typedef struct Inports {
 /* Outports structure */
 typedef struct Outports {
   double scalar_out;
-  struct vectors {
+  struct Outports_vectors {
     double vector1d_out[6];
     double vector2d_out[3][5];
   } vectors;
 } Outports;
+
+
+/* Signals structure */
+typedef struct Signals {
+  int32_t i32_vec_sig[24];
+  double double_sig;
+} Signals;
 
 
 #ifdef __cplusplus
@@ -33,7 +42,7 @@ extern "C" {
 const char* USER_ModelName DataSection(".NIVS.compiledmodelname") =
     "my_new_model";
 const char* USER_Builder DataSection(".NIVS.builder") =
-    "A newly-generated model.";
+    "a newly-generated model";
 
 
 /* Model baserate */
@@ -50,16 +59,15 @@ extern int32_t READSIDE;
 
 int32_t ParameterSize DataSection(".NIVS.paramlistsize") = 2;
 NI_Parameter rtParamAttribs[] DataSection(".NIVS.paramlist") = {
-  {0, "i32_param", offsetof(Parameters, i32_param), rtINT, 1, 2, 0, 0},
-  {0, "double_vec_param", offsetof(Parameters, double_vec_param), rtDBL, 16, 2, 2, 0},
+  {0, "my_new_model/i32_param", offsetof(Parameters, i32_param), rtINT, 1, 2, 0, 0},
+  {0, "my_new_model/double_vec_param", offsetof(Parameters, double_vec_param), rtDBL, 16, 2, 2, 0},
 };
 int32_t ParamDimList[] DataSection(".NIVS.paramdimlist") = {
    1,  1, /* i32_param */
    4,  4, /* double_vec_param */
 };
-Parameters initParams DataSection(".NIVS.defaultparams") = {
-  /* Your default parameter values here */
-};
+/* Set default parameter values here */
+Parameters initParams DataSection(".NIVS.defaultparams");
 ParamSizeWidth Parameters_sizes[] DataSection(".NIVS.defaultparamsizes") = {
   {sizeof(Parameters), 0, 0},
   {sizeof(int32_t), 1, rtINT}, /* i32_param */
@@ -72,8 +80,8 @@ Signals rtSignal;
 
 int32_t SignalSize DataSection(".NIVS.siglistsize") = 2;
 NI_Signal rtSignalAttribs[] DataSection(".NIVS.siglist") = {
-  {0, "my_new_model/i32_vec_sig", 0, "An array of integers.", 0, 0, rtINT, 24, 2, 0, 0},
-  {0, "my_new_model/double_sig", 0, "A double value.", 0, 0, rtDBL, 1, 2, 2, 0},
+  {0, "my_new_model/i32_vec_sig", 0, "an array of integers", 0, 0, rtINT, 24, 2, 0, 0},
+  {0, "my_new_model/double_sig", 0, "a double value", 0, 0, rtDBL, 1, 2, 2, 0},
 };
 int32_t SigDimList[] DataSection(".NIVS.sigdimlist") = {
   24,  1, /* i32_vec_sig */
@@ -140,9 +148,15 @@ int32_t USER_ModelStart(void) {
 }
 
 int32_t USER_TakeOneStep(double* inData, double* outData, double timestamp) {
+  /*
+   * Unused parameters and variables are casted to void to suppress compiler
+   * warnings. When you make use of these variables, you should remove these
+   * casts. Those likely to be removed are marked with "FIXME".
+   */
   const struct Inports* inports = (const struct Inports*)inData;
-  struct Outports* outports = (struct Outports*)outData;
-
+  (void)inports; /* FIXME */  struct Outports* outports = (struct Outports*)outData;
+  (void)outports; /* FIXME */
+  (void)timestamp; /* FIXME */
   return NI_OK;
 }
 

@@ -274,7 +274,7 @@ def FmtChannelsStruct(valuedata, structname: str, types=False) -> str:
             indentlevel = 1
         else:
             indentlevel = 2
-            outstr += f'\tstruct {cat} {{\n'
+            outstr += f'\tstruct {structname}_{cat} {{\n'
 
         for valdef in valuedata[cat]:
             datatype = "double"
@@ -397,7 +397,7 @@ def FmtParamAttribs(param, category: str, offset=0) -> str:
 
     """
     catfield = category + '/' if category != ":default" else ""
-    namefield = catfield + param['name']
+    namefield = str(config["name"]) + '/' + catfield + param['name']
     structoffset = f'offsetof(Parameters, {param["name"]})'
     typefield = 'rtDBL' if param["type"] == "double" else 'rtINT'
     dim = param["dimX"] * param["dimY"]
@@ -459,9 +459,8 @@ def FmtParamList(params) -> str:
                     outstr += f'/* {param["name"]} */\n'
         outstr += '};\n'
 
-        outstr += 'Parameters initParams DataSection(".NIVS.defaultparams")'
-        outstr += ' = {\n'
-        outstr += f'\t/* Your default parameter values here */\n}};\n'
+        outstr += f'/* Set default parameter values here */\n'
+        outstr += 'Parameters initParams DataSection(".NIVS.defaultparams");\n'
 
         outstr += 'ParamSizeWidth Parameters_sizes[] '
         outstr += 'DataSection(".NIVS.defaultparamsizes") = {\n'
@@ -624,6 +623,8 @@ output_model_src = f'''
 #include "ni_modelframework.h"
 #include "model.h"
 
+#include <stddef.h> /* offsetof() */
+
 /* User-defined data types for parameters and signals */
 #define rtDBL 0
 #define rtINT 1
@@ -643,6 +644,13 @@ outportsstruct = f'''
 '''
 if len(outports) > 0:
     output_model_src += outportsstruct
+
+signalsstruct = f'''
+/* Signals structure */
+{FmtSignalsStruct(signals)}
+'''
+if len(signals) > 0:
+    output_model_src += signalsstruct
 
 output_model_src += f'''
 #ifdef __cplusplus
@@ -707,16 +715,29 @@ int32_t USER_ModelStart(void) {{
 }}
 
 int32_t USER_TakeOneStep(double* inData, double* outData, double timestamp) {{
+\t/*
+\t * Unused parameters and variables are casted to void to suppress compiler
+\t * warnings. When you make use of these variables, you should remove these
+\t * casts. Those likely to be removed are marked with "FIXME".
+\t */
 '''
 
 inportscast = 'const struct Inports* inports = (const struct Inports*)inData;\n'
 outportscast = 'struct Outports* outports = (struct Outports*)outData;\n'
 if len(inports) > 0:
     output_model_src += '\t' + inportscast
+    output_model_src += '\t(void)inports; /* FIXME */'
+else:
+    output_model_src += '\t(void)inData; /* suppress unused variable */'
+
 if len(outports) > 0:
     output_model_src += '\t' + outportscast
+    output_model_src += '\t(void)outports; /* FIXME */'
+else:
+    output_model_src += '\t(void)outData; /* suppress unused variable */'
 
 output_model_src += f'''
+\t(void)timestamp; /* FIXME */
 \treturn NI_OK;
 }}
 
