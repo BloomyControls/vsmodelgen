@@ -22,6 +22,10 @@ definitions, and so on. This includes:
 - Two types for parameters and signals (i32 and double)
 - Skeleton definitions of required VeriStand interface functions
 - Tabs or spaces for indentation (default is 2 spaces)
+- Optionally generates a makefile to build the model for VeriStand (at the
+  moment, only Linux x86\_86 targets are supported)
+  - Optionally generates a batch file to use NI's toolchain to build with the
+    generated makefile
 
 ## Usage Example
 
@@ -64,4 +68,4 @@ To see the list of available options when running the script, use `--help` or
 `-h`.
 
 For information on the JSON model configuration file, see
-[docs/configuration.md](/docs/configuration.md)
+[docs/configuration.md](/docs/configuration.md).
