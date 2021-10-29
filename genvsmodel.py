@@ -118,45 +118,45 @@ def Expand(msg: str) -> str:
     else:
         return msg
 
-def GetCategoryAndName(portname: str) -> (str, str):
+def GetCategoryAndName(channel: str) -> (str, str):
     """
     Parse the name of an inport, outport, signal, or parameter into a category
     and a name.
 
-    :param portname: the name of the inport, outport, signal, or parameter
+    :param channel: the name of the inport, outport, signal, or parameter
 
     :returns: a tuple of ("category", "name")
 
     """
-    if not "." in portname:
-        if portname.isidentifier():
-            return (":default", portname)
+    if not "." in channel:
+        if channel.isidentifier():
+            return (":default", channel)
         else:
-            Die(f"{portname} is not a valid identifier")
+            Die(f"{channel} is not a valid identifier")
     else:
-        parts = portname.split(".")
+        parts = channel.split(".")
         if len(parts) == 2:
             (cat, name) = parts
             if not cat.isidentifier():
-                Die(f"'{portname}': '{cat}' is not a valid identifier")
+                Die(f"'{channel}': '{cat}' is not a valid identifier")
             elif not name.isidentifier():
-                Die(f"'{portname}': '{name}' is not a valid identifier")
+                Die(f"'{channel}': '{name}' is not a valid identifier")
             else:
                 return (cat, name)
         else:
-            Die(f"'{portname}': names cannot contain more than one '.'")
+            Die(f"'{channel}': names cannot contain more than one '.'")
 
-def ParseValueDefs(values, desc=False, types=False) -> dict:
+def ParseChannels(channels, desc=False, types=False) -> dict:
     """
-    Parse value definitions (inports, outports, signals, parameters) from the
+    Parse channels (inports, outports, signals, parameters) from the
     JSON config data.
 
-    :param values: array of objects from JSON
-    :type values: list
-    :param desc: whether or not this value type has a definition field (i.e.
+    :param channels: array of objects from JSON
+    :type channels: list
+    :param desc: whether or not this channel type has a definition field (i.e.
     signals) (Default value = False)
-    :param types: whether or not this value type has a type field (i.e. signals
-    and parameters) (Default value = False)
+    :param types: whether or not this channel type has a type field (i.e.
+    signals and parameters) (Default value = False)
 
     :returns: a dictionary mapping categories to lists of objects containing
     name, dimX>=1, dimY>=1, and optionally a description and a type
@@ -164,7 +164,7 @@ def ParseValueDefs(values, desc=False, types=False) -> dict:
     """
     outdata = {}
 
-    for valdef in values:
+    for channel in channels:
         dimX = 1
         dimY = 1
         cat = None
@@ -172,36 +172,36 @@ def ParseValueDefs(values, desc=False, types=False) -> dict:
         description = None
         datatype = "double"
 
-        if isinstance(valdef, dict):
-            if "name" in valdef:
-                (cat, name) = GetCategoryAndName(str(valdef["name"]))
+        if isinstance(channel, dict):
+            if "name" in channel:
+                (cat, name) = GetCategoryAndName(str(channel["name"]))
             else:
                 Die("unnamed port, signal, or parameter")
 
-            if desc and "description" in valdef:
-                description = str(valdef["description"])
+            if desc and "description" in channel:
+                description = str(channel["description"])
 
-            if types and "type" in valdef:
-                if valdef["type"] == "i32":
+            if types and "type" in channel:
+                if channel["type"] == "i32":
                     datatype = "int32_t"
-                elif valdef["type"] == "double":
+                elif channel["type"] == "double":
                     datatype = "double"
                 else:
-                    Die(f"'{valdef['name']}': unknown type: {valdef['name']}")
+                    Die(f"'{channel['name']}': unknown type: {channel['name']}")
 
-            if "dimX" in valdef:
-                dimX = int(valdef["dimX"])
-            if "dimY" in valdef:
-                dimY = int(valdef["dimY"])
+            if "dimX" in channel:
+                dimX = int(channel["dimX"])
+            if "dimY" in channel:
+                dimY = int(channel["dimY"])
             if dimX < 1:
-                Die(f"'{valdef['name']}': dimX cannot be less than 1")
+                Die(f"'{channel['name']}': dimX cannot be less than 1")
             if dimY < 1:
-                Die(f"'{valdef['name']}': dimY cannot be less than 1")
-        elif isinstance(valdef, str):
-            (cat, name) = GetCategoryAndName(str(valdef["name"]))
+                Die(f"'{channel['name']}': dimY cannot be less than 1")
+        elif isinstance(channel, str):
+            (cat, name) = GetCategoryAndName(channel)
 
         if not cat is None:
-            valdata = {
+            chandata = {
                     "name": name,
                     "dimX": dimX,
                     "dimY": dimY,
@@ -209,40 +209,40 @@ def ParseValueDefs(values, desc=False, types=False) -> dict:
             if desc:
                 if description is None:
                     description = name
-                valdata["description"] = description
+                chandata["description"] = description
             if types:
-                valdata["type"] = datatype
+                chandata["type"] = datatype
             if not cat in outdata:
                 outdata[cat] = []
-            outdata[cat] += [valdata]
+            outdata[cat] += [chandata]
 
     return outdata
 
 def ParsePorts(ports) -> dict:
     """
-    Wraps around ParseValueDefs() to parse inports or outports.
+    Wraps around ParseChannels() to parse inports or outports.
 
     """
-    return ParseValueDefs(ports, types=False, desc=False)
+    return ParseChannels(ports, types=False, desc=False)
 
 def ParseParameters(params) -> dict:
     """
-    Wraps around ParseValueDefs() to parse parameters.
+    Wraps around ParseChannels() to parse parameters.
 
     """
-    return ParseValueDefs(params, types=True, desc=False)
+    return ParseChannels(params, types=True, desc=False)
 
 def ParseSignals(signals) -> dict:
     """
-    Wraps around ParseValueDefs() to parse signals.
+    Wraps around ParseChannels() to parse signals.
 
     """
-    return ParseValueDefs(signals, desc=True, types=True)
+    return ParseChannels(signals, desc=True, types=True)
 
-def FmtValueDefsStruct(valuedata, structname: str, types=False) -> str:
+def FmtChannelsStruct(valuedata, structname: str, types=False) -> str:
     """
-    Format a dict of value definitions (inports, outports, signals, parameters)
-    as returned by ParseValueDefs() into a C structure. This will be in the
+    Format a dict of channels (inports, outports, signals, parameters)
+    as returned by ParseChannels() into a C structure. This will be in the
     format `typedef struct structname {...} structname;`.
 
     Categories will be represented as sub-structures.
@@ -288,26 +288,26 @@ def FmtValueDefsStruct(valuedata, structname: str, types=False) -> str:
 
 def FmtPortsStruct(ports, structname: str) -> str:
     """
-    Format a struct for inports or outports using FmtValueDefsStruct().
+    Format a struct for inports or outports using FmtChannelsStruct().
 
     :param structname: the name of the struct to create
 
     """
-    return FmtValueDefsStruct(ports, structname, types=False)
+    return FmtChannelsStruct(ports, structname, types=False)
 
 def FmtParametersStruct(params) -> str:
     """
-    Format a struct for parameters using FmtValueDefsStruct().
+    Format a struct for parameters using FmtChannelsStruct().
 
     """
-    return FmtValueDefsStruct(params, "Parameters", types=True)
+    return FmtChannelsStruct(params, "Parameters", types=True)
 
 def FmtSignalsStruct(signals) -> str:
     """
-    Format a struct for signals using FmtValueDefsStruct().
+    Format a struct for signals using FmtChannelsStruct().
 
     """
-    return FmtValueDefsStruct(signals, "Signals", types=True)
+    return FmtChannelsStruct(signals, "Signals", types=True)
 
 def FmtExtIO(port, category: str, is_input: bool) -> str:
     """
