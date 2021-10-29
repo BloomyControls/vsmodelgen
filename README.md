@@ -57,3 +57,11 @@ all that out by hand, and for much more complex models with many inports,
 outports, signals, and parameters, it might take many hours to get it right.
 Instead, all the hard work has been done for you, and it's up to you to simply
 fill in the model's functionality!
+
+## Documentation
+
+To see the list of available options when running the script, use `--help` or
+`-h`.
+
+For information on the JSON model configuration file, see
+[docs/configuration.md](/docs/configuration.md)
