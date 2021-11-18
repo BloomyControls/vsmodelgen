@@ -13,6 +13,9 @@ parser = argparse.ArgumentParser(
 parser.add_argument("config", metavar="CONFIG", type=argparse.FileType('r'),
         help="JSON model config file (or '-' to read from stdin)")
 
+parser.add_argument('-r', "--root", type=str, default=os.getcwd(),
+        metavar='DIR', dest='root_dir',
+        help="project root directory (default: current working directory)")
 parser.add_argument("-v", "--verbose", action='store_true',
         help="enable verbose output printed to stderr for debugging")
 
@@ -22,7 +25,7 @@ outputargs.add_argument("-f", "--force", action='store_true',
         help="overwrite output files if they exist")
 outputargs.add_argument("-O", "--outdir", metavar="DIR", type=str,
         default=os.getcwd(),
-        help="directory to output files to instead of the working directory")
+        help="directory to output source files to (default: project root)")
 outputargs.add_argument("-o", metavar="FILE", type=str, dest='outsrcfile',
         default="model.c",
         help="name of the output model source file (default: %(default)s)")
@@ -50,12 +53,15 @@ makeargs = parser.add_argument_group('makefile options',
         textwrap.dedent("""
             Options controlling the generated makefile (if enabled).
 
+            Generated build files (Makefile, build scripts, etc.) are stored in
+            the project root specified by -r.
+
             By default (if -S and -I are not specified), the output directory
             specified by -O (or the current working directory if -O is not
             specified) is used for source files.
 
-            Note: directories specified MUST be relative to the location of the
-            Makefile!
+            Note: directories specified should be relative to the project root
+            directory (specified by -r).
             """))
 makeargs.add_argument('--cstd', type=str, default="c11",
         metavar='STD', help="C language standard (default: %(default)s)")
@@ -95,10 +101,11 @@ def Die(*objects, code=1):
     exit(code)
 
 # output source and header file paths
-outsrcfile = os.path.join(args.outdir, args.outsrcfile)
-outheaderfile = os.path.join(args.outdir, "model.h")
-outmakefile = os.path.join(args.outdir, args.makefile_name)
-outmakebat = os.path.join(args.outdir, "build.bat")
+srcdir = os.path.join(args.root_dir, args.outdir)
+outsrcfile = os.path.join(srcdir, args.outsrcfile)
+outheaderfile = os.path.join(srcdir, "model.h")
+outmakefile = os.path.join(args.root_dir, args.makefile_name)
+outmakebat = os.path.join(args.root_dir, "build.bat")
 
 if not args.stdout:
     if args.gen_src: Vprint("output source file path:", outsrcfile)
@@ -830,7 +837,10 @@ if args.gen_src:
 
 if args.gen_makefile:
     if args.source_dir == "":
-        args.source_dir = "."
+        if args.outdir == os.getcwd():
+            args.source_dir = "."
+        else:
+            args.source_dir = args.outdir
 
     sources = ""
     for ext in ['c', 'cpp', 'cc', 'cxx']:
