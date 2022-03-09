@@ -23,7 +23,7 @@ definitions, and so on. This includes:
 - Skeleton definitions of required VeriStand interface functions
 - Tabs or spaces for indentation (default is 2 spaces)
 - Optionally generates a makefile to build the model for VeriStand (at the
-  moment, only Linux x86\_86 targets are supported)
+  moment, only Linux x86\_64 targets are supported)
   - Optionally generates a batch file to use NI's toolchain to build with the
     generated makefile
 
