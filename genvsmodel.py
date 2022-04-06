@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from datetime import datetime
 import argparse
 import json
 import os
@@ -107,6 +108,10 @@ def Warn(msg: str):
 def Die(*objects, code=1):
     Eprint("error:", *objects)
     exit(code)
+
+def Timestamp() -> str:
+    now = datetime.now()
+    return now.strftime("%a %b %d %H:%M:%S %Y")
 
 # output source and header file paths
 srcdir = os.path.join(args.root_dir, args.outdir)
@@ -692,14 +697,16 @@ if args.gen_header:
     Vprint(f"using {incguard} as model.h include guard")
 
 # contents of the model.h file
-# TODO: the comment here (and the matching one in the source file) should have
-# a timestamp. It may also be useful to include something like a SHA-256 hash of
-# the JSON config file at the time of generation?
 output_model_h = f'''
 /*
- * Auto-generated VeriStand model header. You probably don't want to edit this
- * file directly, but instead edit the JSON config and regenerate it.
+ * Auto-generated VeriStand model types for {config["name"]}.
+ *
+ * Generated {Timestamp()}
+ *
+ * You almost certainly do NOT want to edit this file, as it may be overwritten
+ * at any time!
  */
+
 #ifndef {incguard}
 #define {incguard}
 
@@ -771,9 +778,14 @@ int32_t {config["name"]}_Finalize(void);
 # model source contents
 output_model_src = f'''
 /*
- * Auto-generated VeriStand model source. You probably don't want to edit this
- * file directly, but instead edit the JSON config and regenerate it.
+ * Auto-generated VeriStand model interface code for {config["name"]}.
+ *
+ * Generated {Timestamp()}
+ *
+ * You almost certainly do NOT want to edit this file, as it may be overwritten
+ * at any time!
  */
+
 #include "ni_modelframework.h"
 #include "model.h"
 
@@ -879,6 +891,15 @@ int32_t USER_ModelFinalize(void) {{
 '''
 
 output_model_impl = f'''
+/*
+ * Implementation of {config["name"]}.
+ *
+ * This file is safe to edit and will never be overwritten. Implement your model
+ * logic here.
+ *
+ * Generated {Timestamp()}
+ */
+
 #include "ni_modelframework.h"
 #include "model.h"
 
@@ -961,6 +982,10 @@ if args.gen_makefile:
         includes += ' "-I$(abspath {inc})"'
 
     makefile = f"""
+    # Auto-generated Makefile for {config["name"]}.
+    #
+    # Generated {Timestamp()}
+
     # change this if you wish to update the veristand version used
     # (this is overridden by the value in build.bat)
     VERISTAND_VERSION ?= {args.veristand_version}
@@ -1047,6 +1072,9 @@ if args.gen_makefile:
     if args.gen_make_bat:
         makebat = f"""
         @ECHO OFF
+
+        REM Auto-generated build file for {config["name"]}.
+        REM Generated {Timestamp()}
 
         SET BasePath="%~dp0"
         REM drop the trailing \\ on the path
