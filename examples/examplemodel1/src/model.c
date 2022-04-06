@@ -7,33 +7,6 @@
 #define rtDBL 0
 #define rtINT 1
 
-/* Inports structure */
-typedef struct Inports {
-  double scalar_in;
-  struct Inports_vectors {
-    double vector1d_in[8];
-    double vector2d_in[2][12];
-  } vectors;
-} Inports;
-
-
-/* Outports structure */
-typedef struct Outports {
-  double scalar_out;
-  struct Outports_vectors {
-    double vector1d_out[6];
-    double vector2d_out[3][5];
-  } vectors;
-} Outports;
-
-
-/* Signals structure */
-typedef struct Signals {
-  int32_t i32_vec_sig[24];
-  double double_sig;
-} Signals;
-
-
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -53,10 +26,6 @@ NI_Task rtTaskAttribs DataSection(".NIVS.tasklist") = {0, 0.0025, 0, 0};
 
 
 /* Parameters */
-extern Parameters rtParameter[2];
-extern int32_t READSIDE;
-#define readParam rtParameter[READSIDE]
-
 int32_t ParameterSize DataSection(".NIVS.paramlistsize") = 2;
 NI_Parameter rtParamAttribs[] DataSection(".NIVS.paramlist") = {
   {0, "my_new_model/i32_param", offsetof(Parameters, i32_param), rtINT, 1, 2, 0, 0},
@@ -109,7 +78,8 @@ NI_ExternalIO rtIOAttribs[] DataSection(".NIVS.extlist") = {
 };
 
 
-int32_t USER_SetValueByDataType(void* ptr, int32_t idx, double value, int32_t type) {
+int32_t USER_SetValueByDataType(void* ptr, int32_t idx, double value,
+    int32_t type) {
   switch (type) {
     case rtDBL:
       ((double*)ptr)[idx] = (double)value;
@@ -140,29 +110,22 @@ int32_t USER_Initialize(void) {
   rtSignalAttribs[0].addr = (uintptr_t)rtSignal.i32_vec_sig;
   rtSignalAttribs[1].addr = (uintptr_t)&rtSignal.double_sig;
 
-  return NI_OK;
+  return my_new_model_Initialize();
 }
 
 int32_t USER_ModelStart(void) {
-  return NI_OK;
+  return my_new_model_Start();
 }
 
 int32_t USER_TakeOneStep(double* inData, double* outData, double timestamp) {
-  /*
-   * Unused parameters and variables are casted to void to suppress compiler
-   * warnings. When you make use of these variables, you should remove these
-   * casts. Those likely to be removed are marked with "FIXME".
-   */
   const struct Inports* inports = (const struct Inports*)inData;
-  (void)inports; /* FIXME */
   struct Outports* outports = (struct Outports*)outData;
-  (void)outports; /* FIXME */
-  (void)timestamp; /* FIXME */
-  return NI_OK;
+
+  return my_new_model_Step(inports, outports, timestamp);
 }
 
 int32_t USER_ModelFinalize(void) {
-  return NI_OK;
+  return my_new_model_Finalize();
 }
 
 #ifdef __cplusplus

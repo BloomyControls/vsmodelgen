@@ -24,11 +24,15 @@ outputargs = parser.add_argument_group('output options',
 outputargs.add_argument("-f", "--force", action='store_true',
         help="overwrite output files if they exist")
 outputargs.add_argument("-O", "--outdir", metavar="DIR", type=str,
-        default=os.getcwd(),
+        default="",
         help="directory to output source files to (default: project root)")
 outputargs.add_argument("-o", metavar="FILE", type=str, dest='outsrcfile',
         default="model.c",
         help="name of the output model source file (default: %(default)s)")
+outputargs.add_argument("-i", metavar="FILE", type=str, dest='outimplfile',
+        default="",
+        help="name of the output model implementation file (default: " +
+        "<model_name>.c)")
 outputargs.add_argument("-s", "--stdout", action='store_true',
         help="print generated output to stdout instead of files on disk")
 
@@ -40,6 +44,10 @@ genargs.add_argument(f'--src', action=argparse.BooleanOptionalAction,
         dest="gen_src", default=True, help="generate model source file")
 genargs.add_argument(f'--makefile', action=argparse.BooleanOptionalAction,
         dest="gen_makefile", default=False, help="generate makefile")
+genargs.add_argument(f'--impl', action=argparse.BooleanOptionalAction,
+        dest="gen_impl", default=False,
+        help="generate boilerplate implementation of your model's required " +
+        "functions (will NEVER override, even with --force specified)")
 
 formatargs = parser.add_argument_group('formatting options',
         'Options controlling the formatting of the generated source.')
@@ -166,6 +174,16 @@ if not "baserate" in config:
 Vprint(f'model name: {config["name"]}')
 Vprint(f'model builder: {config["builder"]}')
 Vprint(f'model baserate: {config["baserate"]}')
+
+outimplfile = os.path.join(srcdir, config["name"] + '.c')
+if len(args.outimplfile) > 0:
+    outimplfile = os.path.join(srcdir, args.outimplfile)
+
+if args.gen_impl:
+    Vprint("output boilerplate file path:", outimplfile)
+    if os.path.exists(outimplfile):
+        print(f"{outimplfile} exists and will NOT be overwritten!")
+        args.gen_impl = False
 
 
 def Expand(msg: str) -> str:
@@ -315,6 +333,11 @@ def FmtChannelsStruct(valuedata, structname: str, types=False) -> str:
 
     Categories will be represented as sub-structures.
 
+    If the struct name is "Parameters," the struct will contain one member even
+    if there are no parameters. This is because the parameters type MUST exist,
+    even if you have no parameters. Empty structs are allowed in C++, but not in
+    C, so we add a dummy member for C compatibility.
+
     :param valuedata: dictionary containing definitions of categories and their
     values
     :type valuedata: dict
@@ -327,6 +350,13 @@ def FmtChannelsStruct(valuedata, structname: str, types=False) -> str:
 
     """
     outstr = f'typedef struct {structname} {{\n'
+
+    # add dummy member for empty parameters structs, since the struct must exist
+    # even if we don't want it to
+    if structname == "Parameters":
+        if len(valuedata) == 0:
+            outstr += '\t/* Empty structures are invalid in C */\n'
+            outstr += '\tint dummy_param_;\n'
 
     for cat in valuedata:
         indentlevel = 1
@@ -483,11 +513,6 @@ def FmtParamList(params) -> str:
         paramcount += len(params[cat])
 
     Vprint(f"found {paramcount} parameters")
-
-    if paramcount > 0:
-        outstr += 'extern Parameters rtParameter[2];\n'
-        outstr += 'extern int32_t READSIDE;\n'
-        outstr += '#define readParam rtParameter[READSIDE]\n\n'
 
     outstr += 'int32_t ParameterSize DataSection(".NIVS.paramlistsize") = '
     outstr += f'{paramcount};\n'
@@ -676,6 +701,63 @@ output_model_h = f'''
 /* Parameters structure */
 {FmtParametersStruct(parameters)}
 
+/* Parameters are defined by NI model interface code */
+/* Use readParam to access parameters */
+extern Parameters rtParameter[2];
+extern int32_t READSIDE;
+#define readParam rtParameter[READSIDE]
+'''
+
+# add inports and outports only if applicable
+inportsstruct = f'''
+/* Inports structure */
+{FmtPortsStruct(inports, "Inports")}
+'''
+if len(inports) > 0:
+    output_model_h += inportsstruct
+
+outportsstruct = f'''
+/* Outports structure */
+{FmtPortsStruct(outports, "Outports")}
+'''
+if len(outports) > 0:
+    output_model_h += outportsstruct
+
+signalsstruct = f'''
+/* Signals structure */
+{FmtSignalsStruct(signals)}
+
+/* Model signals */
+extern Signals rtSignal;
+'''
+if len(signals) > 0:
+    output_model_h += signalsstruct
+
+output_model_h += f'''
+#ifdef __cplusplus
+extern "C" {{
+#endif /* __cplusplus */
+
+/* Your model code should define these functions. Return NI_OK or NI_ERROR. */
+int32_t {config["name"]}_Initialize(void);
+int32_t {config["name"]}_Start(void);'''
+
+# model step function definition
+stepfuncdef = f'int32_t {config["name"]}_Step('
+if len(inports) > 0:
+    stepfuncdef += 'const Inports* inports, '
+if len(outports) > 0:
+    stepfuncdef += 'Outports* outports, '
+stepfuncdef += 'double timestamp)'
+
+output_model_h += f'''
+{stepfuncdef};
+int32_t {config["name"]}_Finalize(void);
+
+#ifdef __cplusplus
+}} /* extern "C" */
+#endif /* __cplusplus */
+
 #endif /* {incguard} */
 '''
 
@@ -689,31 +771,7 @@ output_model_src = f'''
 /* User-defined data types for parameters and signals */
 #define rtDBL 0
 #define rtINT 1
-'''
 
-# add inports and outports only if applicable
-inportsstruct = f'''
-/* Inports structure */
-{FmtPortsStruct(inports, "Inports")}
-'''
-if len(inports) > 0:
-    output_model_src += inportsstruct
-
-outportsstruct = f'''
-/* Outports structure */
-{FmtPortsStruct(outports, "Outports")}
-'''
-if len(outports) > 0:
-    output_model_src += outportsstruct
-
-signalsstruct = f'''
-/* Signals structure */
-{FmtSignalsStruct(signals)}
-'''
-if len(signals) > 0:
-    output_model_src += signalsstruct
-
-output_model_src += f'''
 #ifdef __cplusplus
 extern "C" {{
 #endif /* __cplusplus */
@@ -741,7 +799,8 @@ NI_Task rtTaskAttribs DataSection(".NIVS.tasklist") = {{0, {baserate}, 0, 0}};
 /* Inports and outports */
 {FmtExtIOList(inports, outports)}
 
-int32_t USER_SetValueByDataType(void* ptr, int32_t idx, double value, int32_t type) {{
+int32_t USER_SetValueByDataType(void* ptr, int32_t idx, double value,
+\t\tint32_t type) {{
 \tswitch (type) {{
 \t\tcase rtDBL:
 \t\t\t((double*)ptr)[idx] = (double)value;
@@ -768,40 +827,71 @@ double USER_GetValueByDataType(void* ptr, int32_t idx, int32_t type) {{
 }}
 
 int32_t USER_Initialize(void) {{{FmtSignalInit(signals)}
-\treturn NI_OK;
+\treturn {config["name"]}_Initialize();
 }}
 
 int32_t USER_ModelStart(void) {{
-\treturn NI_OK;
+\treturn {config["name"]}_Start();
 }}
 
 int32_t USER_TakeOneStep(double* inData, double* outData, double timestamp) {{
-\t/*
-\t * Unused parameters and variables are casted to void to suppress compiler
-\t * warnings. When you make use of these variables, you should remove these
-\t * casts. Those likely to be removed are marked with "FIXME".
-\t */
 '''
 
 inportscast = 'const struct Inports* inports = (const struct Inports*)inData;\n'
 outportscast = 'struct Outports* outports = (struct Outports*)outData;\n'
 if len(inports) > 0:
     output_model_src += '\t' + inportscast
-    output_model_src += '\t(void)inports; /* FIXME */\n'
 else:
     output_model_src += '\t(void)inData; /* suppress unused variable */\n'
 
 if len(outports) > 0:
     output_model_src += '\t' + outportscast
-    output_model_src += '\t(void)outports; /* FIXME */\n'
 else:
     output_model_src += '\t(void)outData; /* suppress unused variable */\n'
 
-output_model_src += f'''\t(void)timestamp; /* FIXME */
-\treturn NI_OK;
+output_model_src += f'''
+\treturn {config["name"]}_Step('''
+if len(inports) > 0:
+    output_model_src += 'inports, '
+if len(outports) > 0:
+    output_model_src += 'outports, '
+output_model_src += f'''timestamp);
 }}
 
 int32_t USER_ModelFinalize(void) {{
+\treturn {config["name"]}_Finalize();
+}}
+
+#ifdef __cplusplus
+}} /* extern "C" */
+#endif /* __cplusplus */
+'''
+
+output_model_impl = f'''
+#include "ni_modelframework.h"
+#include "model.h"
+
+#ifdef __cplusplus
+extern "C" {{
+#endif /* __cplusplus */
+
+int32_t {config["name"]}_Initialize(void) {{
+\t/* TODO: Initialize your model here */
+\treturn NI_OK;
+}}
+
+int32_t {config["name"]}_Start(void) {{
+\t/* TODO: Prepare to start your model here */
+\treturn NI_OK;
+}}
+
+{stepfuncdef} {{
+\t/* TODO: Perform model steps here */
+\treturn NI_OK;
+}}
+
+int32_t {config["name"]}_Finalize(void) {{
+\t/* TODO: Cleanup your model here */
 \treturn NI_OK;
 }}
 
@@ -835,9 +925,18 @@ if args.gen_src:
         print(output_model_src, file=open(outsrcfile, 'w'))
         print(f"wrote {linecount} lines to {outsrcfile}")
 
+if args.gen_impl:
+    output_model_impl = Expand(output_model_impl)
+    linecount = len(output_model_impl.splitlines())
+    if args.stdout:
+        print(output_model_impl, file=sys.stdout)
+    else:
+        print(output_model_impl, file=open(outimplfile, 'w'))
+        print(f"wrote {linecount} lines to {outimplfile}")
+
 if args.gen_makefile:
     if args.source_dir == "":
-        if args.outdir == os.getcwd():
+        if len(args.outdir) == 0:
             args.source_dir = "."
         else:
             args.source_dir = args.outdir
