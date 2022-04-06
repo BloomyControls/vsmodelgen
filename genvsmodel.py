@@ -692,7 +692,14 @@ if args.gen_header:
     Vprint(f"using {incguard} as model.h include guard")
 
 # contents of the model.h file
+# TODO: the comment here (and the matching one in the source file) should have
+# a timestamp. It may also be useful to include something like a SHA-256 hash of
+# the JSON config file at the time of generation?
 output_model_h = f'''
+/*
+ * Auto-generated VeriStand model header. You probably don't want to edit this
+ * file directly, but instead edit the JSON config and regenerate it.
+ */
 #ifndef {incguard}
 #define {incguard}
 
@@ -763,6 +770,10 @@ int32_t {config["name"]}_Finalize(void);
 
 # model source contents
 output_model_src = f'''
+/*
+ * Auto-generated VeriStand model source. You probably don't want to edit this
+ * file directly, but instead edit the JSON config and regenerate it.
+ */
 #include "ni_modelframework.h"
 #include "model.h"
 
