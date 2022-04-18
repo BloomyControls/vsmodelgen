@@ -1,3 +1,12 @@
+/*
+ * Auto-generated VeriStand model interface code for my_new_model.
+ *
+ * Generated Mon Apr 18 10:30:58 2022
+ *
+ * You almost certainly do NOT want to edit this file, as it may be overwritten
+ * at any time!
+ */
+
 #include "ni_modelframework.h"
 #include "model.h"
 
@@ -124,7 +133,7 @@ int32_t USER_TakeOneStep(double* inData, double* outData, double timestamp) {
   return my_new_model_Step(inports, outports, timestamp);
 }
 
-int32_t USER_ModelFinalize(void) {
+int32_t USER_Finalize(void) {
   return my_new_model_Finalize();
 }
 

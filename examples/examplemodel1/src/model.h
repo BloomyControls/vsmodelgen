@@ -1,3 +1,12 @@
+/*
+ * Auto-generated VeriStand model types for my_new_model.
+ *
+ * Generated Mon Apr 18 10:30:58 2022
+ *
+ * You almost certainly do NOT want to edit this file, as it may be overwritten
+ * at any time!
+ */
+
 #ifndef MY_NEW_MODEL_MODEL_H
 #define MY_NEW_MODEL_MODEL_H
 
