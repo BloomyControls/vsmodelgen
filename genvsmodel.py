@@ -916,7 +916,7 @@ if len(outports) > 0:
 output_model_src += f'''timestamp);
 }}
 
-int32_t USER_ModelFinalize(void) {{
+int32_t USER_Finalize(void) {{
 \treturn {config["name"]}_Finalize();
 }}
 
