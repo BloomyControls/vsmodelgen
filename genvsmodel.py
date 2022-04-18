@@ -1074,7 +1074,7 @@ if args.gen_makefile:
 
     $(NIVS_OBJ): $(NIVS_SRC) | $(BUILDDIR)
     \t@echo CC\t$@
-    \t@$(CC) $(CFLAGS) $(CPPFLAGS) -w "-I{args.source_dir}" $(NIVS_INC) -o "$@" -c "$<"
+    \t@$(CC) $(CFLAGS) $(CPPFLAGS) -D_XOPEN_SOURCE=700 -w "-I{args.source_dir}" $(NIVS_INC) -o "$@" -c "$<"
 
     define GEN_OBJ_TARGET
     $$(BUILDDIR)/%$(1).o: {args.source_dir}/%$(1) | $$(BUILDDIR)
