@@ -240,7 +240,7 @@ def Expand(msg: str) -> str:
     else:
         return msg
 
-def GetCategoryAndName(channel: str) -> (str, str):
+def GetCategoryAndName(channel: str) -> tuple[str, str]:
     """
     Parse the name of an inport, outport, signal, or parameter into a category
     and a name.
