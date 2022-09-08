@@ -1265,7 +1265,7 @@ def gen_makebat_linux64():
     SET VERISTAND_VERSION={args.veristand_version}
 
     REM setup VeriStand environment and pass args to the makefile
-    cmd /k "C:\\VeriStand\\%VERISTAND_VERSION%\\ModelInterface\\tmw\\toolchain\\Linux_64_GNU_Setup.bat & cs-make.exe -f {args.makefile_name} %*"
+    cmd /k "C:\\VeriStand\\%VERISTAND_VERSION%\\ModelInterface\\tmw\\toolchain\\Linux_64_GNU_Setup.bat & cs-make.exe -f linux64.mak %*"
     """
 
     makebat = textwrap.dedent(makebat).strip()
