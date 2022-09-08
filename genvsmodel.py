@@ -95,9 +95,9 @@ formatargs.add_argument("-w", "--indentwidth", metavar="N", type=int,
 
 makeargs = parser.add_argument_group('makefile options',
         textwrap.dedent("""
-            Options controlling the generated makefile (if enabled).
+            Options controlling the generated makefile(s) (if enabled).
 
-            Generated build files (Makefile, build scripts, etc.) are stored in
+            Generated build files (Makefiles, build scripts, etc.) are stored in
             the project root specified by -r.
 
             By default (if -S and -I are not specified), the output directory
@@ -115,9 +115,6 @@ makeargs.add_argument('-I', action='extend', type=str, default=[],
         metavar='DIR', dest='include_dirs',
         help="add a directory to search for includes in (may be specified " +
         "multiple tiles)")
-makeargs.add_argument('-M', '--makefile-name', type=str, default="Makefile",
-        metavar='NAME', dest='makefile_name',
-        help="change the name of the generated makefile (default: %(default)s)")
 makeargs.add_argument('-S', type=str, default="", metavar='DIR',
         dest='source_dir',
         help="add a directory to look for source files in")
@@ -126,7 +123,7 @@ makeargs.add_argument('-V', "--veristand-version", type=int, default=2018,
         help="VeriStand version to use (default: %(default)s)")
 makeargs.add_argument('-B', "--bat", action='store_true', dest="gen_make_bat",
         help="generate build.bat script to use NI's toolchain to run the " +
-        "generated makefile")
+        "generated makefiles")
 
 args = parser.parse_args()
 
@@ -152,14 +149,20 @@ def Timestamp() -> str:
 srcdir = os.path.join(args.root_dir, args.outdir)
 outsrcfile = os.path.join(srcdir, args.outsrcfile)
 outheaderfile = os.path.join(srcdir, "model.h")
-outmakefile = os.path.join(args.root_dir, args.makefile_name)
-outmakebat = os.path.join(args.root_dir, "build.bat")
+outmakefile_linux64 = os.path.join(args.root_dir, "linux64.mak")
+outmakefile_win = os.path.join(args.root_dir, "windows.mak")
+outmakebat_linux64 = os.path.join(args.root_dir, "build_linux64.bat")
+outmakebat_win = os.path.join(args.root_dir, "build_windows.bat")
 
 if not args.stdout:
     if args.gen_src: Vprint("output source file path:", outsrcfile)
     if args.gen_header: Vprint("output header file path:", outheaderfile)
-    if args.gen_makefile: Vprint("output makefile path:", outmakefile)
-    if args.gen_make_bat: Vprint("output batch file path:", outmakebat)
+    if args.gen_makefile:
+        Vprint("output linux 64-bit makefile path:", outmakefile_linux64)
+        Vprint("output windows makefile path:", outmakefile_win)
+    if args.gen_make_bat:
+        Vprint("output linux 64-bit batch file path:", outmakebat_linux64)
+        Vprint("output windows batch file path:", outmakebat_win)
 
     if not args.force:
         if args.gen_src and os.path.exists(outsrcfile):
@@ -172,14 +175,18 @@ if not args.stdout:
             Eprint("use -f to override this behavior")
             exit(1)
 
-        if args.gen_makefile and os.path.exists(outmakefile):
-            Eprint(f"output file {outmakefile} exists, not overwriting")
-            Eprint("use -f to override this behavior")
-            exit(1)
-        if args.gen_make_bat and os.path.exists(outmakebat):
-            Eprint(f"output file {outmakebat} exists, not overwriting")
-            Eprint("use -f to override this behavior")
-            exit(1)
+        if args.gen_makefile:
+            for f in [outmakefile_linux64, outmakefile_win]:
+                if os.path.exists(f):
+                    Eprint(f"output file {f} exists, not overwriting")
+                    Eprint("use -f to override this behavior")
+                    exit(1)
+        if args.gen_make_bat:
+            for f in [outmakebat_linux64, outmakebat_win]:
+                if os.path.exists(f):
+                    Eprint(f"output file {f} exists, not overwriting")
+                    Eprint("use -f to override this behavior")
+                    exit(1)
 
     else:
         if args.gen_src and os.path.exists(outsrcfile):
@@ -188,11 +195,15 @@ if not args.stdout:
         if args.gen_header and os.path.exists(outheaderfile):
             print(f"{outheaderfile} exists and will be overwritten (-f)")
 
-        if args.gen_makefile and os.path.exists(outmakefile):
-            print(f"{outmakefile} exists and will be overwritten (-f)")
+        if args.gen_makefile:
+            for f in [outmakefile_linux64, outmakefile_win]:
+                if os.path.exists(f):
+                    print(f"{f} exists and will be overwritten (-f)")
 
-        if args.gen_make_bat and os.path.exists(outmakebat):
-            print(f"{outmakebat} exists and will be overwritten (-f)")
+        if args.gen_make_bat:
+            for f in [outmakebat_linux64, outmakebat_win]:
+                if os.path.exists(f):
+                    print(f"{f} exists and will be overwritten (-f)")
 else:
     Vprint("output will be written to stdout")
 
@@ -1023,8 +1034,8 @@ if args.gen_makefile:
     for inc in args.include_dirs:
         includes += ' "-I$(abspath {inc})"'
 
-    makefile = f"""
-    # Auto-generated Makefile for {config["name"]}.
+    makefile_linux64 = f"""
+    # Auto-generated 64-bit Linux Makefile for {config["name"]}.
     #
     # Generated {Timestamp()}
 
@@ -1103,19 +1114,19 @@ if args.gen_makefile:
     \t@$(RM) -rf "$(BUILDDIR)"
     """
 
-    makefile = textwrap.dedent(makefile).strip()
-    linecount = len(makefile.splitlines())
+    makefile_linux64 = textwrap.dedent(makefile_linux64).strip()
+    linecount = len(makefile_linux64.splitlines())
     if args.stdout:
-        print(makefile, file=sys.stdout)
+        print(makefile_linux64, file=sys.stdout)
     else:
-        print(makefile, file=open(outmakefile, 'w'))
-        print(f"wrote {linecount} lines to {outmakefile}")
+        print(makefile_linux64, file=open(outmakefile_linux64, 'w'))
+        print(f"wrote {linecount} lines to {outmakefile_linux64}")
 
     if args.gen_make_bat:
-        makebat = f"""
+        makebat_linux64 = f"""
         @ECHO OFF
 
-        REM Auto-generated build file for {config["name"]}.
+        REM Auto-generated 64-bit Linux build file for {config["name"]}.
         REM Generated {Timestamp()}
 
         SET BasePath="%~dp0"
@@ -1131,10 +1142,10 @@ if args.gen_makefile:
         cmd /k "C:\\VeriStand\\%VERISTAND_VERSION%\\ModelInterface\\tmw\\toolchain\\Linux_64_GNU_Setup.bat & cs-make.exe -f {args.makefile_name} %*"
         """
 
-        makebat = textwrap.dedent(makebat).strip()
-        linecount = len(makebat.splitlines())
+        makebat_linux64 = textwrap.dedent(makebat_linux64).strip()
+        linecount = len(makebat_linux64.splitlines())
         if args.stdout:
-            print(makebat, file=sys.stdout)
+            print(makebat_linux64, file=sys.stdout)
         else:
-            print(makebat, file=open(outmakebat, 'w'))
-            print(f"wrote {linecount} lines to {outmakebat}")
+            print(makebat_linux64, file=open(outmakebat_linux64, 'w'))
+            print(f"wrote {linecount} lines to {outmakebat_linux64}")
