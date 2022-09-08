@@ -37,6 +37,7 @@
 
 from datetime import datetime
 import argparse
+import glob
 import json
 import os
 import sys
@@ -1019,7 +1020,7 @@ if args.gen_impl:
         print(output_model_impl, file=open(outimplfile, 'w'))
         print(f"wrote {linecount} lines to {outimplfile}")
 
-if args.gen_makefile:
+def gen_makefile_linux64():
     if args.source_dir == "":
         if len(args.outdir) == 0:
             args.source_dir = "."
@@ -1032,9 +1033,9 @@ if args.gen_makefile:
 
     includes = ""
     for inc in args.include_dirs:
-        includes += ' "-I$(abspath {inc})"'
+        includes += f' "-I$(abspath {inc})"'
 
-    makefile_linux64 = f"""
+    makefile = f"""
     # Auto-generated 64-bit Linux Makefile for {config["name"]}.
     #
     # Generated {Timestamp()}
@@ -1069,7 +1070,7 @@ if args.gen_makefile:
     NIVS_INC := "-IC:/VeriStand/$(VERISTAND_VERSION)/ModelInterface"
 
     # override this with environment variable if desired
-    BUILDDIR ?= build
+    BUILDDIR ?= build/linux64
 
     SRC :={sources}
     OBJ := $(patsubst {args.source_dir}/%,$(BUILDDIR)/%.o,$(SRC))
@@ -1114,38 +1115,170 @@ if args.gen_makefile:
     \t@$(RM) -rf "$(BUILDDIR)"
     """
 
-    makefile_linux64 = textwrap.dedent(makefile_linux64).strip()
-    linecount = len(makefile_linux64.splitlines())
+    makefile = textwrap.dedent(makefile).strip()
+    linecount = len(makefile.splitlines())
     if args.stdout:
-        print(makefile_linux64, file=sys.stdout)
+        print(makefile, file=sys.stdout)
     else:
-        print(makefile_linux64, file=open(outmakefile_linux64, 'w'))
+        print(makefile, file=open(outmakefile_linux64, 'w'))
         print(f"wrote {linecount} lines to {outmakefile_linux64}")
 
-    if args.gen_make_bat:
-        makebat_linux64 = f"""
-        @ECHO OFF
-
-        REM Auto-generated 64-bit Linux build file for {config["name"]}.
-        REM Generated {Timestamp()}
-
-        SET BasePath="%~dp0"
-        REM drop the trailing \\ on the path
-        SET BasePath="%BasePath:~0,-1%"
-
-        cd "%BasePath%"
-
-        REM change this to change your VeriStand version
-        SET VERISTAND_VERSION={args.veristand_version}
-
-        REM setup VeriStand environment and pass args to the makefile
-        cmd /k "C:\\VeriStand\\%VERISTAND_VERSION%\\ModelInterface\\tmw\\toolchain\\Linux_64_GNU_Setup.bat & cs-make.exe -f {args.makefile_name} %*"
-        """
-
-        makebat_linux64 = textwrap.dedent(makebat_linux64).strip()
-        linecount = len(makebat_linux64.splitlines())
-        if args.stdout:
-            print(makebat_linux64, file=sys.stdout)
+def gen_makefile_win():
+    if args.source_dir == "":
+        if len(args.outdir) == 0:
+            args.source_dir = "."
         else:
-            print(makebat_linux64, file=open(outmakebat_linux64, 'w'))
-            print(f"wrote {linecount} lines to {outmakebat_linux64}")
+            args.source_dir = args.outdir
+
+    args.source_dir = args.source_dir.replace('/', '\\')
+    args.source_dir = args.source_dir.rstrip('\\ ')
+
+    includes = ""
+    for inc in args.include_dirs:
+        _inc = inc.replace("/", "\\")
+        includes += f' "/I{_inc}"'
+
+    makefile = f"""
+    # Auto-generated Windows Makefile for {config["name"]}.
+    #
+    # Generated {Timestamp()}
+
+    # this variable must always match the name of this file!
+    THIS_FILE = windows.mak
+
+    # change this if you wish to update the veristand version used
+    # (this is overridden by the value in build.bat)
+    !IFNDEF VERISTAND_VERSION
+    VERISTAND_VERSION = {args.veristand_version}
+    !ENDIF
+
+    CC = cl
+    CXX = cl
+    LD = link
+
+    CFLAGS = /nologo /O2 /MD
+    CXXFLAGS = /nologo /std:{args.cxxstd} /Zc:__cplusplus /O2 /MD /EHsc
+    LDFLAGS = /nologo /dll /incremental:no
+
+    # add include directories (/Ipath\\to\\dir) here
+    INCLUDES ={includes}
+
+    # include directory for ni_modelframework.h
+    NIVS_INC = /IC:\\VeriStand\\$(VERISTAND_VERSION)\\ModelInterface
+
+    # build directory
+    BUILDDIR = build\\win
+
+    NIVS_SRC = "C:\\VeriStand\\$(VERISTAND_VERSION)\\ModelInterface\\custom\\src\\ni_modelframework.c"
+    NIVS_OBJ = $(BUILDDIR)\\ni_modelframework.obj
+
+    TARGET = $(BUILDDIR)\\{config["name"]}.dll
+
+    all: $(BUILDDIR) _all_objs $(NIVS_OBJ) $(TARGET)
+
+    # workaround to emulate wildcard searching for source files
+    _all_objs: _cobjs _cppobjs _cxxobjs _ccobjs
+
+    # wildcard each type of file and recursively make them
+    obj_files=$(**:.c=.obj)
+    _cobjs: {args.source_dir}\\*.c
+    \t@IF NOT "$**"=="{args.source_dir}\\*.c" ( \\
+    \t\t$(MAKE) /NOLOGO /F $(THIS_FILE) $(obj_files:{args.source_dir}\\=) \\
+    \t)
+
+    obj_files=$(**:.cpp=.obj)
+    _cppobjs: {args.source_dir}\\*.cpp
+    \t@IF NOT "$**"=="{args.source_dir}\\*.cpp" ( \\
+    \t\t$(MAKE) /NOLOGO /F $(THIS_FILE) $(obj_files:{args.source_dir}\\=) \\
+    \t)
+
+    obj_files=$(**:.cxx=.obj)
+    _cxxobjs: {args.source_dir}\\*.cxx
+    \t@IF NOT "$**"=="{args.source_dir}\\*.cxx" ( \\
+    \t\t$(MAKE) /NOLOGO /F $(THIS_FILE) $(obj_files:{args.source_dir}\\=) \\
+    \t)
+
+    obj_files=$(**:.cc=.obj)
+    _ccobjs: {args.source_dir}\\*.cc
+    \t@IF NOT "$**"=="{args.source_dir}\\*.cc" ( \\
+    \t\t$(MAKE) /NOLOGO /F $(THIS_FILE) $(obj_files:{args.source_dir}\\=) \\
+    \t)
+
+    # dummy targets to keep nmake happy when files matching these patterns don't
+    # exist
+    {args.source_dir}\\*.c:
+
+    {args.source_dir}\\*.cpp:
+
+    {args.source_dir}\\*.cxx:
+
+    {args.source_dir}\\*.cc:
+
+
+    $(TARGET): $(BUILDDIR)\\*.obj
+    \t@$(LD) $(LDFLAGS) /OUT:"$@" $**
+
+    {{{args.source_dir}\\}}.cpp{{}}.obj:
+    \t@$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDES) $(NIVS_INC) /Fo"$(BUILDDIR)\\$@" /c "$<"
+
+    {{{args.source_dir}\\}}.cc{{}}.obj:
+    \t@$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDES) $(NIVS_INC) /Fo"$(BUILDDIR)\\$@" /c "$<"
+
+    {{{args.source_dir}\\}}.cxx{{}}.obj:
+    \t@$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDES) $(NIVS_INC) /Fo"$(BUILDDIR)\\$@" /c "$<"
+
+    {{{args.source_dir}\\}}.c{{}}.obj:
+    \t@$(CC) $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $(NIVS_INC) /Fo"$(BUILDDIR)\\$@" /c "$<"
+
+    $(NIVS_OBJ): $(NIVS_SRC)
+    \t@$(CC) $(CFLAGS) $(CPPFLAGS) /I{args.source_dir} $(NIVS_INC) /Fo"$@" /c $**
+
+    $(BUILDDIR):
+    \tMKDIR $@
+
+    clean:
+    \tDEL /Q $(BUILDDIR)
+    """
+
+    makefile = textwrap.dedent(makefile).strip()
+    linecount = len(makefile.splitlines())
+    if args.stdout:
+        print(makefile, file=sys.stdout)
+    else:
+        print(makefile, file=open(outmakefile_win, 'w'))
+        print(f"wrote {linecount} lines to {outmakefile_win}")
+
+def gen_makebat_linux64():
+    makebat = f"""
+    @ECHO OFF
+
+    REM Auto-generated 64-bit Linux build file for {config["name"]}.
+    REM Generated {Timestamp()}
+
+    SET BasePath="%~dp0"
+    REM drop the trailing \\ on the path
+    SET BasePath="%BasePath:~0,-1%"
+
+    cd "%BasePath%"
+
+    REM change this to change your VeriStand version
+    SET VERISTAND_VERSION={args.veristand_version}
+
+    REM setup VeriStand environment and pass args to the makefile
+    cmd /k "C:\\VeriStand\\%VERISTAND_VERSION%\\ModelInterface\\tmw\\toolchain\\Linux_64_GNU_Setup.bat & cs-make.exe -f {args.makefile_name} %*"
+    """
+
+    makebat = textwrap.dedent(makebat).strip()
+    linecount = len(makebat.splitlines())
+    if args.stdout:
+        print(makebat, file=sys.stdout)
+    else:
+        print(makebat, file=open(outmakebat_linux64, 'w'))
+        print(f"wrote {linecount} lines to {outmakebat_linux64}")
+
+if args.gen_makefile:
+    gen_makefile_linux64()
+    gen_makefile_win()
+
+    if args.gen_make_bat:
+        gen_makebat_linux64()
