@@ -775,7 +775,9 @@ if len(outports) > 0:
 signalsstruct = f'''
 /* Signals structure */
 {FmtSignalsStruct(signals)}
-
+'''
+# goes below in the extern "C" block if using C++ (fixes a bug with Windows)
+signalsdecl = '''
 /* Model signals */
 extern Signals rtSignal;
 '''
@@ -786,7 +788,12 @@ output_model_h += f'''
 #ifdef __cplusplus
 extern "C" {{
 #endif /* __cplusplus */
+'''
 
+if len(signals) > 0:
+    output_model_h += signalsdecl
+
+output_model_h += f'''
 /* Your model code should define these functions. Return NI_OK or NI_ERROR. */
 int32_t {config["name"]}_Initialize(void);
 int32_t {config["name"]}_Start(void);'''

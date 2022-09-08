@@ -1,7 +1,7 @@
 /*
  * Auto-generated VeriStand model types for my_new_model.
  *
- * Generated Mon Apr 18 10:30:58 2022
+ * Generated Thu Sep 08 12:07:35 2022
  *
  * You almost certainly do NOT want to edit this file, as it may be overwritten
  * at any time!
@@ -52,12 +52,12 @@ typedef struct Signals {
 } Signals;
 
 
-/* Model signals */
-extern Signals rtSignal;
-
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+/* Model signals */
+extern Signals rtSignal;
 
 /* Your model code should define these functions. Return NI_OK or NI_ERROR. */
 int32_t my_new_model_Initialize(void);

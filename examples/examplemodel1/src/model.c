@@ -1,7 +1,7 @@
 /*
  * Auto-generated VeriStand model interface code for my_new_model.
  *
- * Generated Mon Apr 18 10:30:58 2022
+ * Generated Thu Sep 08 12:07:35 2022
  *
  * You almost certainly do NOT want to edit this file, as it may be overwritten
  * at any time!
