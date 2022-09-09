@@ -22,10 +22,10 @@ interface definitions. This includes:
 - Two types for parameters and signals (i32 and double)
 - Skeleton definitions of required VeriStand interface functions
 - Tabs or spaces for indentation (default is 2 spaces)
-- Optionally generates a makefile to build the model for VeriStand (at the
-  moment, only Linux x86\_64 targets are supported)
+- Optionally generates a makefile to build the model for VeriStand
   - Optionally generates a batch file to use NI's toolchain to build with the
     generated makefile
+  - Supported architectures: Linux x86_64, Windows x86 and x64<sup>\*</sup>
 - The generated code stands alone and does not need to be edited, making it safe
   to regenerate without erasing user code
 - Generates function prototypes to be defined elsewhere which implement the
@@ -42,6 +42,9 @@ function prototypes in `model.h` can be implemented elsewhere for your model and
 don't need to change unless you change specific things. This way you can safely
 regenerate the VeriStand model source without accidentally overwriting your
 model's code!
+
+<sup>\*</sup> *Building for Windows requires Visual Studio 2017 or newer
+installed with the C/C++ build tools included.*
 
 ## Usage Example
 
