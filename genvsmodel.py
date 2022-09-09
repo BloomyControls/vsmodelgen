@@ -1178,7 +1178,7 @@ def gen_makefile_win():
     NIVS_SRC = "C:\\VeriStand\\$(VERISTAND_VERSION)\\ModelInterface\\custom\\src\\ni_modelframework.c"
     NIVS_OBJ = $(BUILDDIR)\\ni_modelframework.obj
 
-    TARGET = $(BUILDDIR)\\{config["name"]}.dll
+    TARGET = $(BUILDDIR)\\{config["name"]}_$(WIN_ARCH).dll
 
     all: $(BUILDDIR) _all_objs $(NIVS_OBJ) $(TARGET)
 
