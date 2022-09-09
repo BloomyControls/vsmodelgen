@@ -153,7 +153,8 @@ outheaderfile = os.path.join(srcdir, "model.h")
 outmakefile_linux64 = os.path.join(args.root_dir, "linux64.mak")
 outmakefile_win = os.path.join(args.root_dir, "windows.mak")
 outmakebat_linux64 = os.path.join(args.root_dir, "build_linux64.bat")
-outmakebat_win = os.path.join(args.root_dir, "build_windows.bat")
+outmakebat_win32 = os.path.join(args.root_dir, "build_win_x86.bat")
+outmakebat_win64 = os.path.join(args.root_dir, "build_win_x64.bat")
 
 if not args.stdout:
     if args.gen_src: Vprint("output source file path:", outsrcfile)
@@ -163,7 +164,8 @@ if not args.stdout:
         Vprint("output windows makefile path:", outmakefile_win)
     if args.gen_make_bat:
         Vprint("output linux 64-bit batch file path:", outmakebat_linux64)
-        Vprint("output windows batch file path:", outmakebat_win)
+        Vprint("output win32 batch file path:", outmakebat_win32)
+        Vprint("output win64 batch file path:", outmakebat_win64)
 
     if not args.force:
         if args.gen_src and os.path.exists(outsrcfile):
@@ -183,7 +185,7 @@ if not args.stdout:
                     Eprint("use -f to override this behavior")
                     exit(1)
         if args.gen_make_bat:
-            for f in [outmakebat_linux64, outmakebat_win]:
+            for f in [outmakebat_linux64, outmakebat_win32, outmakebat_win64]:
                 if os.path.exists(f):
                     Eprint(f"output file {f} exists, not overwriting")
                     Eprint("use -f to override this behavior")
@@ -202,7 +204,7 @@ if not args.stdout:
                     print(f"{f} exists and will be overwritten (-f)")
 
         if args.gen_make_bat:
-            for f in [outmakebat_linux64, outmakebat_win]:
+            for f in [outmakebat_linux64, outmakebat_win32, outmakebat_win64]:
                 if os.path.exists(f):
                     print(f"{f} exists and will be overwritten (-f)")
 else:
@@ -788,7 +790,7 @@ signalsstruct = f'''
 /* Signals structure */
 {FmtSignalsStruct(signals)}
 '''
-# goes below in the extern "C" block if using C++ (fixes a bug with Windows)
+# goes below in the extern "C" block if using C++ (fixes a bug with Windows x86)
 signalsdecl = '''
 /* Model signals */
 extern Signals rtSignal;
@@ -1041,7 +1043,7 @@ def gen_makefile_linux64():
     # Generated {Timestamp()}
 
     # change this if you wish to update the veristand version used
-    # (this is overridden by the value in build.bat)
+    # (this is overridden by the value in build_linux64.bat)
     VERISTAND_VERSION ?= {args.veristand_version}
 
     CC = x86_64-nilrt-linux-gcc.exe
@@ -1139,7 +1141,7 @@ def gen_makefile_win():
         includes += f' "/I{_inc}"'
 
     makefile = f"""
-    # Auto-generated Windows Makefile for {config["name"]}.
+    # Auto-generated Windows x86 Makefile for {config["name"]}.
     #
     # Generated {Timestamp()}
 
@@ -1147,9 +1149,13 @@ def gen_makefile_win():
     THIS_FILE = windows.mak
 
     # change this if you wish to update the veristand version used
-    # (this is overridden by the value in build.bat)
+    # (this is overridden by the value in build_win_*.bat)
     !IFNDEF VERISTAND_VERSION
     VERISTAND_VERSION = {args.veristand_version}
+    !ENDIF
+
+    !IFNDEF WIN_ARCH
+    !ERROR "WIN_ARCH not defined"
     !ENDIF
 
     CC = cl
@@ -1167,7 +1173,7 @@ def gen_makefile_win():
     NIVS_INC = /IC:\\VeriStand\\$(VERISTAND_VERSION)\\ModelInterface
 
     # build directory
-    BUILDDIR = build\\win
+    BUILDDIR = build\\win_$(WIN_ARCH)
 
     NIVS_SRC = "C:\\VeriStand\\$(VERISTAND_VERSION)\\ModelInterface\\custom\\src\\ni_modelframework.c"
     NIVS_OBJ = $(BUILDDIR)\\ni_modelframework.obj
@@ -1276,9 +1282,82 @@ def gen_makebat_linux64():
         print(makebat, file=open(outmakebat_linux64, 'w'))
         print(f"wrote {linecount} lines to {outmakebat_linux64}")
 
+def gen_makebat_win(arch: str, outpath: str):
+    makebat = f"""
+    @ECHO OFF
+
+    REM Auto-generated Windows {arch} build script for {config['name']}.
+    REM Generated {Timestamp()}
+
+    SETLOCAL ENABLEDELAYEDEXPANSION
+
+    SET BasePath="%~dp0"
+    REM drop the trailing \\ on the path
+    SET BasePath="%BasePath:~0,-1%"
+
+    cd "%BasePath%"
+
+    REM change this to change your VeriStand version
+    SET VERISTAND_VERSION={args.veristand_version}
+
+    REM find VS tools 2017+
+    REM https://docs.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170
+
+    SET vers=(^
+      2017^
+      2019^
+      2022^
+    )
+
+    SET editions=(^
+      BuildTools^
+      Professional^
+      Enterprise^
+      Community^
+    )
+
+    SET vsed=""
+    SET vsver=0
+    SET vcvars=""
+
+    FOR %%v IN %vers% DO (
+      FOR %%e IN %editions% DO (
+        SET p="C:\\Program Files (x86)\\Microsoft Visual Studio\\%%v\\%%e\\VC\\Auxiliary\\Build\\vcvarsall.bat"
+        IF EXIST !p! (
+          SET vsed=%%e
+          SET vsver=%%v
+          SET vcvars=!p!
+          GOTO Found
+        )
+      )
+    )
+
+    :NotFound
+    ECHO No Visual Studio installation found! Make sure you have VS2017+ with
+    ECHO the C/C++ development tools installed!
+
+    exit /b 1
+
+    :Found
+    ECHO Found Visual Studio %vsed% %vsver% build tools
+
+    SET WIN_ARCH={arch}
+    cmd /K "%vcvars% {arch} & nmake /NOLOGO /F windows.mak %*"
+    """
+
+    makebat = textwrap.dedent(makebat).strip()
+    linecount = len(makebat.splitlines())
+    if args.stdout:
+        print(makebat, file=sys.stdout)
+    else:
+        print(makebat, file=open(outpath, 'w'))
+        print(f"wrote {linecount} lines to {outpath}")
+
 if args.gen_makefile:
     gen_makefile_linux64()
     gen_makefile_win()
 
     if args.gen_make_bat:
         gen_makebat_linux64()
+        gen_makebat_win('x86', outmakebat_win32)
+        gen_makebat_win('x64', outmakebat_win64)
