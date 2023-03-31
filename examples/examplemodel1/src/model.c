@@ -1,7 +1,7 @@
 /*
  * Auto-generated VeriStand model interface code for my_new_model.
  *
- * Generated Thu Sep 08 12:07:35 2022
+ * Generated Fri Mar 31 11:00:09 2023
  *
  * You almost certainly do NOT want to edit this file, as it may be overwritten
  * at any time!
@@ -116,7 +116,7 @@ double USER_GetValueByDataType(void* ptr, int32_t idx, int32_t type) {
 
 int32_t USER_Initialize(void) {
   /* Populate pointers to signal values */
-  rtSignalAttribs[0].addr = (uintptr_t)rtSignal.i32_vec_sig;
+  rtSignalAttribs[0].addr = (uintptr_t)&*rtSignal.i32_vec_sig;
   rtSignalAttribs[1].addr = (uintptr_t)&rtSignal.double_sig;
 
   return my_new_model_Initialize();

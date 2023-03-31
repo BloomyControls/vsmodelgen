@@ -714,9 +714,9 @@ def FmtSignalInit(signals) -> str:
             if sig["dimX"] == 1 and sig["dimY"] == 1:
                 prefix = '&'
             elif sig["dimX"] > 1 and sig["dimY"] == 1:
-                prefix = ''
+                prefix = '&*'
             elif sig["dimX"] > 1 and sig["dimY"] > 1:
-                prefix = '*'
+                prefix = '&**'
             catname = '' if cat == ':default' else '.' + cat
             outstr += f'{prefix}rtSignal{catname}.{sig["name"]};\n'
             i += 1

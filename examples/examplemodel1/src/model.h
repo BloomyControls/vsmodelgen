@@ -1,7 +1,7 @@
 /*
  * Auto-generated VeriStand model types for my_new_model.
  *
- * Generated Thu Sep 08 12:07:35 2022
+ * Generated Fri Mar 31 11:00:09 2023
  *
  * You almost certainly do NOT want to edit this file, as it may be overwritten
  * at any time!
