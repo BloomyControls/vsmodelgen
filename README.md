@@ -44,7 +44,9 @@ regenerate the VeriStand model source without accidentally overwriting your
 model's code!
 
 \**Building for Windows requires Visual Studio 2017 or newer
-installed with the C/C++ build tools included.*
+installed with the C/C++ build tools included. Visual Studio Build Tools is
+supported and recommended for those who would not otherwise have a use for
+Visual Studio.*
 
 ## Usage Example
 
