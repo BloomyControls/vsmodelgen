@@ -4,7 +4,7 @@
 #
 # https://github.com/BloomyControls/vsmodelgen
 #
-# Copyright (c) 2022, Bloomy Controls
+# Copyright (c) 2023, Bloomy Controls
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
