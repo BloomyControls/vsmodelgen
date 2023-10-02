@@ -1314,6 +1314,7 @@ def gen_makebat_win(arch: str, outpath: str):
     SET vers=(^
       2017^
       2019^
+      2022^
     )
 
     SET editions=(^
