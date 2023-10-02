@@ -764,11 +764,19 @@ output_model_h = f'''
 /* Parameters structure */
 {FmtParametersStruct(parameters)}
 
+#ifdef __cplusplus
+extern "C" {{
+#endif /* __cplusplus */
+
 /* Parameters are defined by NI model interface code */
 /* Use readParam to access parameters */
 extern Parameters rtParameter[2];
 extern int32_t READSIDE;
 #define readParam rtParameter[READSIDE]
+
+#ifdef __cplusplus
+}} /* extern "C" */
+#endif /* __cplusplus */
 '''
 
 # add inports and outports only if applicable
