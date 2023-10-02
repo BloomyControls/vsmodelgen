@@ -43,11 +43,9 @@ don't need to change unless you change specific things. This way you can safely
 regenerate the VeriStand model source without accidentally overwriting your
 model's code!
 
-\**Building for Windows requires Visual Studio 2017 or 2019 installed with the
-C/C++ build tools included. Visual Studio Build Tools is supported and
+\**Building for Windows requires Visual Studio 2017, 2019, or 2022 installed
+with the C/C++ build tools included. Visual Studio Build Tools is supported and
 recommended for those who would not otherwise have a use for Visual Studio.
-Note: Visual Studio 2022 has been tested and does not work with VeriStand 2020
-or 2021 (newer versions have not been tested at this time).*
 
 ## Usage Example
 
