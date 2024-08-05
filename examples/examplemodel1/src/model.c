@@ -1,7 +1,7 @@
 /*
  * Auto-generated VeriStand model interface code for my_new_model.
  *
- * Generated Fri Mar 31 11:00:09 2023
+ * Generated Mon Aug 05 13:01:48 2024
  *
  * You almost certainly do NOT want to edit this file, as it may be overwritten
  * at any time!
@@ -11,6 +11,7 @@
 #include "model.h"
 
 #include <stddef.h> /* offsetof() */
+#include <string.h> /* memcpy() */
 
 /* User-defined data types for parameters and signals */
 #define rtDBL 0
@@ -111,7 +112,9 @@ double USER_GetValueByDataType(void* ptr, int32_t idx, int32_t type) {
 
   /* Return NaN on error */
   static const uint64_t nan = ~(uint64_t)0;
-  return *(const double*)&nan;
+  double v;
+  memcpy(&v, &nan, sizeof(v));
+  return v;
 }
 
 int32_t USER_Initialize(void) {

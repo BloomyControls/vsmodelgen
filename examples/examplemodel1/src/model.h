@@ -1,7 +1,7 @@
 /*
  * Auto-generated VeriStand model types for my_new_model.
  *
- * Generated Fri Mar 31 11:00:09 2023
+ * Generated Mon Aug 05 13:01:48 2024
  *
  * You almost certainly do NOT want to edit this file, as it may be overwritten
  * at any time!
@@ -19,11 +19,19 @@ typedef struct Parameters {
 } Parameters;
 
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 /* Parameters are defined by NI model interface code */
 /* Use readParam to access parameters */
 extern Parameters rtParameter[2];
 extern int32_t READSIDE;
 #define readParam rtParameter[READSIDE]
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif /* __cplusplus */
 
 /* Inports structure */
 typedef struct Inports {

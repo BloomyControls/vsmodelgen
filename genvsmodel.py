@@ -854,6 +854,7 @@ output_model_src = f'''
 #include "model.h"
 
 #include <stddef.h> /* offsetof() */
+#include <string.h> /* memcpy() */
 
 /* User-defined data types for parameters and signals */
 #define rtDBL 0
@@ -910,7 +911,9 @@ double USER_GetValueByDataType(void* ptr, int32_t idx, int32_t type) {{
 
 \t/* Return NaN on error */
 \tstatic const uint64_t nan = ~(uint64_t)0;
-\treturn *(const double*)&nan;
+\tdouble v;
+\tmemcpy(&v, &nan, sizeof(v));
+\treturn v;
 }}
 
 int32_t USER_Initialize(void) {{{FmtSignalInit(signals)}
