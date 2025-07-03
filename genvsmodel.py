@@ -1339,6 +1339,14 @@ def gen_makebat_win(arch: str, outpath: str):
           SET vsver=%%v
           SET vcvars=!p!
           GOTO Found
+        ) ELSE (
+          SET p="C:\\Program Files\\Microsoft Visual Studio\\%%v\\%%e\\VC\\Auxiliary\\Build\\vcvarsall.bat"
+          IF EXIST !p! (
+            SET vsed=%%e
+            SET vsver=%%v
+            SET vcvars=!p!
+            GOTO Found
+          )
         )
       )
     )
